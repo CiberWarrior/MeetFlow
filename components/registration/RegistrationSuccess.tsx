@@ -13,14 +13,24 @@ export interface BankInstructions {
   reference: string | null
 }
 
+export type ConfirmationEmailStatus = 'sent' | 'failed' | 'unknown'
+
 interface RegistrationSuccessProps {
   bankInstructions?: BankInstructions | null
   proformaDownloadUrl?: string | null
+  confirmationEmail?: ConfirmationEmailStatus
+}
+
+function confirmationMessageKey(status: ConfirmationEmailStatus): string {
+  if (status === 'failed') return 'registrationEmailFailed'
+  if (status === 'unknown') return 'registrationEmailUnknown'
+  return 'registrationSuccessMessage'
 }
 
 export default function RegistrationSuccess({
   bankInstructions,
   proformaDownloadUrl,
+  confirmationEmail = 'unknown',
 }: RegistrationSuccessProps) {
   const t = useTranslations('registrationForm')
 
@@ -44,8 +54,8 @@ export default function RegistrationSuccess({
             </svg>
           </div>
           <h2 className="text-2xl font-bold text-green-800 mb-3">{t('registrationSuccess')}</h2>
-          <p className="text-green-700 text-lg">
-            {t('registrationSuccessMessage')}
+          <p className={confirmationEmail === 'sent' ? 'text-green-700 text-lg' : 'text-gray-800 text-lg'}>
+            {t(confirmationMessageKey(confirmationEmail))}
           </p>
         </div>
       </div>
@@ -112,7 +122,9 @@ export default function RegistrationSuccess({
               </div>
             )}
           </dl>
-          <p className="mt-4 text-xs text-gray-600">{t('bankInstructionsEmailNote')}</p>
+          {confirmationEmail === 'sent' && (
+            <p className="mt-4 text-xs text-gray-600">{t('bankInstructionsEmailNote')}</p>
+          )}
         </div>
       )}
     </div>

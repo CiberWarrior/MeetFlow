@@ -17,6 +17,8 @@ import {
   getAvailableFeesForForm,
   selectRegistrationFee,
 } from '@/lib/custom-registration-fees'
+import { extractParticipantNames } from '@/lib/registration-contact'
+import type { EmailDeliveryStatus } from '@/lib/email'
 
 export const dynamic = 'force-dynamic'
 
@@ -585,6 +587,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const participantNames = extractParticipantNames(
+      [
+        validatedData.custom_data,
+        validatedData.participants?.[0]?.customFields,
+      ],
+      customRegistrationFields
+    )
+
     // ============================================
     // PARTICIPANT PROFILE SYSTEM INTEGRATION
     // ============================================
@@ -596,46 +606,29 @@ export async function POST(request: NextRequest) {
         // Extract participant info from custom_data or first participant
         let participantInfo = {
           email: primaryEmail,
-          first_name: '',
-          last_name: '',
+          first_name: participantNames.firstName,
+          last_name: participantNames.lastName,
           phone: null as string | null,
           country: null as string | null,
           institution: null as string | null,
         }
 
-        // Try to extract from custom_data
-        if (validatedData.custom_data) {
-          for (const [key, value] of Object.entries(validatedData.custom_data)) {
-            const lowerKey = key.toLowerCase().trim() // Trim whitespace from field names!
-            if (lowerKey.includes('first') && lowerKey.includes('name')) {
-              participantInfo.first_name = String(value || '')
-            } else if (lowerKey.includes('last') && lowerKey.includes('name')) {
-              participantInfo.last_name = String(value || '')
-            } else if (lowerKey.includes('phone')) {
-              participantInfo.phone = String(value || '')
-            } else if (lowerKey.includes('country')) {
-              participantInfo.country = String(value || '')
-            } else if (lowerKey.includes('institution') || lowerKey.includes('organization')) {
-              participantInfo.institution = String(value || '')
-            }
-          }
-        }
-
-        // If still no name, try first participant
-        if ((!participantInfo.first_name || !participantInfo.last_name) && validatedData.participants && validatedData.participants.length > 0) {
-          const firstParticipant = validatedData.participants[0].customFields
-          
-          for (const [key, value] of Object.entries(firstParticipant)) {
-            const lowerKey = key.toLowerCase().trim() // Trim whitespace from field names!
-            if (!participantInfo.first_name && lowerKey.includes('first') && lowerKey.includes('name')) {
-              participantInfo.first_name = String(value || '')
-            } else if (!participantInfo.last_name && lowerKey.includes('last') && lowerKey.includes('name')) {
-              participantInfo.last_name = String(value || '')
-            } else if (!participantInfo.phone && lowerKey.includes('phone')) {
+        const contactSources = [
+          validatedData.custom_data,
+          validatedData.participants?.[0]?.customFields,
+        ]
+        for (const source of contactSources) {
+          if (!source) continue
+          for (const [key, value] of Object.entries(source)) {
+            const lowerKey = key.toLowerCase().trim()
+            if (!participantInfo.phone && lowerKey.includes('phone')) {
               participantInfo.phone = String(value || '')
             } else if (!participantInfo.country && lowerKey.includes('country')) {
               participantInfo.country = String(value || '')
-            } else if (!participantInfo.institution && (lowerKey.includes('institution') || lowerKey.includes('organization'))) {
+            } else if (
+              !participantInfo.institution &&
+              (lowerKey.includes('institution') || lowerKey.includes('organization'))
+            ) {
               participantInfo.institution = String(value || '')
             }
           }
@@ -769,21 +762,21 @@ export async function POST(request: NextRequest) {
     // END PARTICIPANT PROFILE INTEGRATION
     // ============================================
 
-    // Send confirmation email to participant (with summary of what they filled in)
+    // Send one confirmation email. Registration stays saved if delivery fails.
+    let confirmationEmail: EmailDeliveryStatus = 'unknown'
     if (primaryEmail) {
       try {
         const { sendRegistrationConfirmation } = await import('@/lib/email')
 
-        let confirmFirstName = 'Participant'
-        let confirmLastName = ''
-        if (validatedData.participants && validatedData.participants.length > 0) {
-          const first = validatedData.participants[0].customFields
-          for (const [key, value] of Object.entries(first)) {
-            const k = (key as string).toLowerCase()
-            if (k.includes('first') && k.includes('name')) confirmFirstName = String(value ?? 'Participant')
-            if (k.includes('last') && k.includes('name')) confirmLastName = String(value ?? '')
-          }
-        }
+        const confirmFirstName = participantNames.firstName
+        const confirmLastName = participantNames.lastName
+        if (!confirmFirstName || !confirmLastName) {
+          confirmationEmail = 'failed'
+          log.warn('Registration confirmation email was not sent because the participant name is incomplete', {
+            registrationId: registration.id,
+            action: 'confirmation_email',
+          })
+        } else {
 
         // Build registration summary (HTML) for confirmation email – sve što je ispunio na obrascu
         const summaryParts: string[] = []
@@ -882,28 +875,33 @@ export async function POST(request: NextRequest) {
           const emailSummary =
             ((registrationSummary || '') + manageLinkHtml).trim() || undefined
 
-        await sendRegistrationConfirmation(
-          registration.id,
-          primaryEmail,
-          confirmFirstName,
-          confirmLastName,
-          undefined, // paymentUrl – nije generiran u ovom koraku; korisnik dobiva link kasnije ako treba plaćanje
-          conference.email_settings,
-          emailSummary,
-          validatedData.locale === 'hr' ? 'hr' : 'en'
-        )
-        log.info('Registration confirmation email sent to participant', {
-          registrationId: registration.id,
-          email: primaryEmail,
-          action: 'confirmation_email',
-        })
+          const delivery = await sendRegistrationConfirmation(
+            registration.id,
+            primaryEmail,
+            confirmFirstName,
+            confirmLastName,
+            undefined, // paymentUrl – nije generiran u ovom koraku; korisnik dobiva link kasnije ako treba plaćanje
+            conference.email_settings,
+            emailSummary,
+            validatedData.locale === 'hr' ? 'hr' : 'en'
+          )
+          confirmationEmail =
+            delivery === 'sent' || delivery === 'failed' || delivery === 'unknown'
+              ? delivery
+              : 'unknown'
+          log.info('Registration confirmation email outcome', {
+            registrationId: registration.id,
+            action: 'confirmation_email',
+            status: confirmationEmail,
+          })
+        }
       } catch (emailError) {
+        confirmationEmail = 'failed'
         log.error('Failed to send registration confirmation email', emailError as Error, {
           registrationId: registration.id,
-          email: primaryEmail,
           action: 'confirmation_email',
         })
-        // Don't fail registration if confirmation email fails
+        // Don't fail registration if confirmation email fails, and don't retry.
       }
     }
 
@@ -912,20 +910,10 @@ export async function POST(request: NextRequest) {
       try {
         const { sendConferenceTeamNotification } = await import('@/lib/email')
         
-        // Extract participant info for notification
-        let participantInfo = 'Guest Participant'
-        if (validatedData.participants && validatedData.participants.length > 0) {
-          const firstParticipant = validatedData.participants[0].customFields
-          const firstName = Object.entries(firstParticipant).find(([key]) => 
-            key.toLowerCase().includes('first') && key.toLowerCase().includes('name')
-          )?.[1] || ''
-          const lastName = Object.entries(firstParticipant).find(([key]) => 
-            key.toLowerCase().includes('last') && key.toLowerCase().includes('name')
-          )?.[1] || ''
-          participantInfo = `${firstName} ${lastName}`.trim() || primaryEmail || 'Guest Participant'
-        } else if (primaryEmail) {
-          participantInfo = primaryEmail
-        }
+        const participantInfo =
+          `${participantNames.firstName} ${participantNames.lastName}`.trim() ||
+          primaryEmail ||
+          'Guest Participant'
 
         // Get hotel name if accommodation is selected
         let hotelName = null
@@ -1048,6 +1036,7 @@ View in admin panel: ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000
         success: true,
         message: 'Registration submitted successfully',
         registrationId: registration.id,
+        confirmation_email: confirmationEmail,
         ...(bankInstructions ? { bank_instructions: bankInstructions } : {}),
         ...(proformaDownloadUrl ? { proforma_download_url: proformaDownloadUrl } : {}),
       },

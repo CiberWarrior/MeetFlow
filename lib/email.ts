@@ -168,7 +168,21 @@ export async function sendGenericEmail(params: {
 }
 
 /**
- * Send registration confirmation email to participant (with optional summary of form data)
+ * sent: the email provider accepted the message and returned an id.
+ * That is not proof the message reached an inbox.
+ * failed: the application knows the message was not accepted.
+ * unknown: the outcome could not be confirmed. Do not send again.
+ */
+export type EmailDeliveryStatus = 'sent' | 'failed' | 'unknown'
+
+function messageIdFromResult(result: unknown): string {
+  if (!result || typeof result !== 'object' || !('messageId' in result)) return ''
+  const messageId = (result as { messageId?: unknown }).messageId
+  return typeof messageId === 'string' ? messageId.trim() : ''
+}
+
+/**
+ * Send one registration confirmation. Returns the delivery outcome and does not retry.
  */
 export async function sendRegistrationConfirmation(
   registrationId: string,
@@ -179,18 +193,80 @@ export async function sendRegistrationConfirmation(
   emailSettings?: EmailSettings,
   registrationSummary?: string,
   locale?: 'hr' | 'en'
-): Promise<void> {
-  return sendEmail({
-    emailType: 'registration_confirmation',
-    registrationId,
-    email,
-    firstName,
-    lastName,
-    paymentUrl,
-    emailSettings,
-    registrationSummary,
-    locale,
-  })
+): Promise<EmailDeliveryStatus> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    log.error(
+      'Registration confirmation email was not sent because email delivery is not configured',
+      undefined,
+      {
+        function: 'sendRegistrationConfirmation',
+        hasUrl: !!supabaseUrl,
+        hasKey: !!serviceRoleKey,
+      }
+    )
+    return 'failed'
+  }
+
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/send-confirmation-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${serviceRoleKey}`,
+      },
+      body: JSON.stringify({
+        emailType: 'registration_confirmation',
+        registrationId,
+        email,
+        firstName,
+        lastName,
+        paymentUrl,
+        emailSettings,
+        registrationSummary,
+        locale,
+      }),
+    })
+
+    if (!response.ok) {
+      log.error('Registration confirmation email was rejected', undefined, {
+        function: 'sendRegistrationConfirmation',
+        status: response.status,
+      })
+      return 'failed'
+    }
+
+    let messageId = ''
+    try {
+      messageId = messageIdFromResult(await response.json())
+    } catch (error) {
+      log.warn('Registration confirmation response could not be read', {
+        function: 'sendRegistrationConfirmation',
+        error,
+      })
+      return 'unknown'
+    }
+
+    if (!messageId) {
+      log.warn('Registration confirmation response did not include a message id', {
+        function: 'sendRegistrationConfirmation',
+      })
+      return 'unknown'
+    }
+
+    log.info('Registration confirmation accepted by the email provider', {
+      function: 'sendRegistrationConfirmation',
+      messageId,
+    })
+    return 'sent'
+  } catch (error) {
+    log.error('Registration confirmation email outcome is unknown', error, {
+      function: 'sendRegistrationConfirmation',
+    })
+    return 'unknown'
+  }
 }
 
 /**

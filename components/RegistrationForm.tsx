@@ -20,7 +20,10 @@ import {
   AccommodationTab,
   OrderSummary,
 } from '@/components/registration'
-import type { BankInstructions } from '@/components/registration/RegistrationSuccess'
+import type {
+  BankInstructions,
+  ConfirmationEmailStatus,
+} from '@/components/registration/RegistrationSuccess'
 
 interface RegistrationFormProps {
   conferenceId?: string
@@ -107,6 +110,7 @@ export default function RegistrationForm({
   const [bankTransferProofUrl, setBankTransferProofUrl] = useState<string | null>(null)
   const [bankInstructions, setBankInstructions] = useState<BankInstructions | null>(null)
   const [proformaDownloadUrl, setProformaDownloadUrl] = useState<string | null>(null)
+  const [confirmationEmail, setConfirmationEmail] = useState<ConfirmationEmailStatus>('unknown')
 
   const availableOptionsCount = Object.values(availablePaymentOptions).filter(Boolean).length
 
@@ -359,6 +363,12 @@ export default function RegistrationForm({
       if (data.proforma_download_url) {
         setProformaDownloadUrl(data.proforma_download_url)
       }
+      const emailStatus = data.confirmation_email
+      setConfirmationEmail(
+        emailStatus === 'sent' || emailStatus === 'failed' || emailStatus === 'unknown'
+          ? emailStatus
+          : 'unknown'
+      )
       setSubmitSuccess(true)
       showSuccess(t('registrationSuccess'))
     } catch (error: any) {
@@ -373,6 +383,7 @@ export default function RegistrationForm({
       <RegistrationSuccess
         bankInstructions={bankInstructions}
         proformaDownloadUrl={proformaDownloadUrl}
+        confirmationEmail={confirmationEmail}
       />
     )
   }

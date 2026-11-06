@@ -55,6 +55,7 @@ const missingFeeId = '55555555-5555-4555-8555-555555555555'
 type Write = { table: string; action: 'insert' | 'update'; payload: unknown }
 
 const writes: Write[] = []
+let conferenceSettings: Record<string, unknown> = {}
 
 function fee(overrides: Record<string, unknown>) {
   return {
@@ -92,7 +93,7 @@ function adminClient() {
               id: conferenceId,
               name: 'Pilot Conference',
               slug: 'pilot',
-              settings: {},
+              settings: conferenceSettings,
               email_settings: null,
               pricing: null,
               start_date: '2026-12-01',
@@ -161,6 +162,7 @@ function request(body: Record<string, unknown>) {
 describe('POST /api/register fee validation', () => {
   beforeEach(() => {
     writes.length = 0
+    conferenceSettings = {}
     jest.clearAllMocks()
     createAdminClientMock.mockImplementation(adminClient)
     getAvailableFeesForFormMock.mockResolvedValue([
@@ -364,5 +366,175 @@ describe('POST /api/register fee validation', () => {
       payment_status: 'not_required',
       payment_required: false,
     })
+  })
+
+  it('sends Croatian Ime and Prezime to the confirmation email once', async () => {
+    getAvailableFeesForFormMock.mockResolvedValue([
+      fee({ id: freeFeeId, name: 'Complimentary', price_gross: 0 }),
+    ])
+    sendRegistrationConfirmationMock.mockResolvedValueOnce('sent')
+
+    const response = await POST(
+      request({
+        registration_fee_id: freeFeeId,
+        participants: [
+          {
+            customFields: {
+              email: 'ana@example.com',
+              Ime: 'Ana',
+              Prezime: 'Horvat',
+            },
+          },
+        ],
+      })
+    )
+
+    expect(response.status).toBe(201)
+    await expect(response.json()).resolves.toMatchObject({
+      success: true,
+      confirmation_email: 'sent',
+    })
+    expect(sendRegistrationConfirmationMock).toHaveBeenCalledTimes(1)
+    expect(sendRegistrationConfirmationMock).toHaveBeenCalledWith(
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      'ana@example.com',
+      'Ana',
+      'Horvat',
+      undefined,
+      null,
+      expect.any(String),
+      'en'
+    )
+  })
+
+  it('sends English first_name and last_name to the confirmation email once', async () => {
+    getAvailableFeesForFormMock.mockResolvedValue([
+      fee({ id: freeFeeId, name: 'Complimentary', price_gross: 0 }),
+    ])
+    sendRegistrationConfirmationMock.mockResolvedValueOnce('sent')
+
+    const response = await POST(
+      request({
+        registration_fee_id: freeFeeId,
+        participants: [
+          {
+            customFields: {
+              email: 'ada@example.com',
+              first_name: 'Ada',
+              last_name: 'Lovelace',
+            },
+          },
+        ],
+      })
+    )
+
+    expect(response.status).toBe(201)
+    expect(sendRegistrationConfirmationMock).toHaveBeenCalledTimes(1)
+    expect(sendRegistrationConfirmationMock).toHaveBeenCalledWith(
+      expect.any(String),
+      'ada@example.com',
+      'Ada',
+      'Lovelace',
+      undefined,
+      null,
+      expect.any(String),
+      'en'
+    )
+  })
+
+  it('does not treat a display label as the last-name field', async () => {
+    conferenceSettings = {
+      custom_registration_fields: [
+        { id: 'field-notes', name: 'notes', label: 'Prezime', type: 'text', required: false },
+        { id: 'field-ime', name: 'Ime', label: 'Ime', type: 'text', required: true },
+      ],
+    }
+    getAvailableFeesForFormMock.mockResolvedValue([
+      fee({ id: freeFeeId, name: 'Complimentary', price_gross: 0 }),
+    ])
+
+    const response = await POST(
+      request({
+        registration_fee_id: freeFeeId,
+        participants: [
+          {
+            customFields: {
+              email: 'ana@example.com',
+              Ime: 'Ana',
+              notes: 'Horvat',
+            },
+          },
+        ],
+      })
+    )
+
+    expect(response.status).toBe(201)
+    await expect(response.json()).resolves.toMatchObject({
+      confirmation_email: 'failed',
+    })
+    expect(sendRegistrationConfirmationMock).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['failed', 'failed'],
+    ['unknown', 'unknown'],
+  ] as const)(
+    'keeps the registration when confirmation delivery is %s',
+    async (delivery, expected) => {
+      getAvailableFeesForFormMock.mockResolvedValue([
+        fee({ id: freeFeeId, name: 'Complimentary', price_gross: 0 }),
+      ])
+      sendRegistrationConfirmationMock.mockResolvedValueOnce(delivery)
+
+      const response = await POST(
+        request({
+          registration_fee_id: freeFeeId,
+          participants: [
+            {
+              customFields: {
+                email: 'ada@example.com',
+                first_name: 'Ada',
+                last_name: 'Lovelace',
+              },
+            },
+          ],
+        })
+      )
+
+      expect(response.status).toBe(201)
+      await expect(response.json()).resolves.toMatchObject({
+        success: true,
+        confirmation_email: expected,
+      })
+      expect(sendRegistrationConfirmationMock).toHaveBeenCalledTimes(1)
+    }
+  )
+
+  it('reports a failed confirmation without exposing the provider error or retrying', async () => {
+    getAvailableFeesForFormMock.mockResolvedValue([
+      fee({ id: freeFeeId, name: 'Complimentary', price_gross: 0 }),
+    ])
+    sendRegistrationConfirmationMock.mockRejectedValueOnce(new Error('smtp secret failure'))
+
+    const response = await POST(
+      request({
+        registration_fee_id: freeFeeId,
+        participants: [
+          {
+            customFields: {
+              email: 'ada@example.com',
+              first_name: 'Ada',
+              last_name: 'Lovelace',
+            },
+          },
+        ],
+      })
+    )
+
+    expect(response.status).toBe(201)
+    const body = await response.json()
+    expect(body.confirmation_email).toBe('failed')
+    expect(JSON.stringify(body)).not.toContain('smtp secret failure')
+    expect(sendRegistrationConfirmationMock).toHaveBeenCalledTimes(1)
   })
 })
