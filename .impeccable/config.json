@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "arial",
+        "createdAt": "2026-11-06T16:09:17.502Z",
+        "reason": "Existing transactional email CSS in the registration API, not a UI font choice. Security Fix 02 only changes attachment validation."
+      }
+    ]
+  }
+}

@@ -13,6 +13,11 @@ import {
   getCustomFieldEntries,
   resolveAddonLabels,
 } from '@/lib/registration-admin-display'
+import {
+  openRegistrationAttachment,
+  parseRegistrationAttachmentPath,
+} from '@/lib/registration-attachment'
+import { showError } from '@/utils/toast'
 
 interface RegistrationDetailDrawerProps {
   registration: Registration | null
@@ -219,15 +224,21 @@ export default function RegistrationDetailDrawer({
               </>
             )}
             {registration.bank_transfer_proof_url && (
-              <a
-                href={registration.bank_transfer_proof_url}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={() => {
+                  void openRegistrationAttachment(
+                    registration.id,
+                    registration.bank_transfer_proof_url!
+                  ).catch((error: unknown) => {
+                    showError(error instanceof Error ? error.message : t('viewProof'))
+                  })
+                }}
                 className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800"
               >
                 <ExternalLink className="w-4 h-4" />
                 {t('viewProof')}
-              </a>
+              </button>
             )}
             {registration.paymentMethod === 'bank_transfer' && registration.paymentStatus === 'pending' && onConfirmBankPayment && (
               <button
@@ -267,7 +278,27 @@ export default function RegistrationDetailDrawer({
           {customEntries.length > 0 && (
             <Section title={t('detailsFormFields')} icon={<User className="w-4 h-4" />}>
               {customEntries.map(({ label, value }) => (
-                <Row key={label} label={label} value={value} />
+                <Row
+                  key={label}
+                  label={label}
+                  value={
+                    parseRegistrationAttachmentPath(value) ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void openRegistrationAttachment(registration.id, value).catch((error: unknown) => {
+                            showError(error instanceof Error ? error.message : t('viewProof'))
+                          })
+                        }}
+                        className="text-blue-600 hover:text-blue-800 underline"
+                      >
+                        {t('viewProof')}
+                      </button>
+                    ) : (
+                      value
+                    )
+                  }
+                />
               ))}
             </Section>
           )}

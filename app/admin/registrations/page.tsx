@@ -22,6 +22,11 @@ import {
   resolveAddonLabels,
   type AccommodationFilter,
 } from '@/lib/registration-admin-display'
+import {
+  ATTACHMENT_REFERENCE_LABEL,
+  openRegistrationAttachment,
+  parseRegistrationAttachmentPath,
+} from '@/lib/registration-attachment'
 import type { HotelOption, RegistrationAddon, CustomRegistrationField } from '@/types/conference'
 
 // Force dynamic rendering for this page (uses searchParams)
@@ -323,7 +328,8 @@ function RegistrationsPageContent() {
         if (typeof value === 'boolean') return value ? t('yes') : t('no')
         if (Array.isArray(value)) return value.join(', ')
         if (typeof value === 'object') return JSON.stringify(value)
-        return String(value)
+        const text = String(value)
+        return parseRegistrationAttachmentPath(text) ? ATTACHMENT_REFERENCE_LABEL : text
       })
       
       // Add participant data if enabled
@@ -1155,14 +1161,17 @@ function RegistrationsPageContent() {
                       {reg.paymentMethod === 'bank_transfer' && (
                         <div className="mt-1 flex flex-col items-start gap-1">
                           {reg.bank_transfer_proof_url && (
-                            <a
-                              href={reg.bank_transfer_proof_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <button
+                              type="button"
+                              onClick={() => {
+                                void openRegistrationAttachment(reg.id, reg.bank_transfer_proof_url!).catch((error: unknown) => {
+                                  showError(error instanceof Error ? error.message : t('viewProof'))
+                                })
+                              }}
                               className="text-xs text-blue-600 hover:text-blue-800 underline"
                             >
                               {t('viewProof')}
-                            </a>
+                            </button>
                           )}
                           {reg.paymentStatus === 'pending' && (
                             <button

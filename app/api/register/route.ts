@@ -4,6 +4,10 @@ import { ZodError } from 'zod'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { log } from '@/lib/logger'
 import {
+  ATTACHMENT_REFERENCE_LABEL,
+  parseRegistrationAttachmentPath,
+} from '@/lib/registration-attachment'
+import {
   registrationRateLimit,
   getClientIP,
   checkRateLimit,
@@ -74,8 +78,14 @@ const registrationSchema = z.object({
   // Payer type: person or company; company_details required when payer_type === 'company'
   payer_type: z.enum(['person', 'company']).optional().default('person'),
   company_details: companyDetailsSchema,
-  // Bank transfer proof of payment (uploaded via /upload-registration-attachment before submit)
-  bank_transfer_proof_url: z.string().url().optional().nullable(),
+  // Bank transfer proof. New uploads store a bucket path; older rows store a public URL.
+  bank_transfer_proof_url: z
+    .string()
+    .optional()
+    .nullable()
+    .refine((value) => value == null || value === '' || parseRegistrationAttachmentPath(value) !== null, {
+      message: 'Invalid registration attachment',
+    }),
   // Jezik e-maila potvrde: 'hr' ili 'en'
   locale: z.enum(['hr', 'en']).optional().default('en'),
 })
@@ -758,8 +768,9 @@ export async function POST(request: NextRequest) {
             summaryParts.push(`<p style="margin: 0 0 8px 0;"><strong>Participant${num}</strong></p>`)
             Object.entries(p.customFields || {}).forEach(([label, value]) => {
               if (value == null || value === '') return
-              const v = String(value)
-              summaryParts.push(`<p style="margin: 0 0 4px 0; padding-left: 12px;">${escapeHtml(label)}: ${escapeHtml(v)}</p>`)
+              const raw = String(value)
+              const shown = parseRegistrationAttachmentPath(raw) ? ATTACHMENT_REFERENCE_LABEL : raw
+              summaryParts.push(`<p style="margin: 0 0 4px 0; padding-left: 12px;">${escapeHtml(label)}: ${escapeHtml(shown)}</p>`)
             })
           })
         }

@@ -24,8 +24,7 @@ const ALLOWED_MIME_TYPES = [
 /**
  * POST /api/conferences/[slug]/upload-registration-attachment
  * Generic upload used both for bank transfer proof and 'file' type custom
- * registration fields. Returns a public URL to be embedded in the
- * /api/register payload.
+ * registration fields. Returns a bucket-relative path, not a public URL.
  */
 export async function POST(
   request: NextRequest,
@@ -154,10 +153,6 @@ export async function POST(
       )
     }
 
-    const { data: publicUrlData } = supabase.storage
-      .from(bucketName)
-      .getPublicUrl(filePath)
-
     log.info('Registration attachment uploaded successfully', {
       conferenceId: conference.id,
       filePath,
@@ -166,7 +161,7 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      url: publicUrlData.publicUrl,
+      url: filePath,
       fileName: file.name,
     })
   } catch (error) {
