@@ -86,7 +86,7 @@ export async function PATCH(
     if (organization !== undefined) profileUpdates.organization = organization
     if (active !== undefined) profileUpdates.active = active
 
-    const { error: updateProfileError } = await supabase
+    const { error: updateProfileError } = await createAdminClient()
       .from('user_profiles')
       .update(profileUpdates)
       .eq('id', id)
@@ -215,7 +215,7 @@ export async function DELETE(
     })
 
     // Soft delete - deactivate instead of hard delete
-    const { error } = await supabase
+    const { error } = await createAdminClient()
       .from('user_profiles')
       .update({ 
         active: false,
