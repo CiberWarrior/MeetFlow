@@ -202,6 +202,16 @@ GRANT UPDATE (
   bank_account_currency
 ) ON public.user_profiles TO authenticated;
 
+-- Participant self-service allows contact updates, never financial, loyalty, or role changes.
+REVOKE INSERT, DELETE, UPDATE ON public.participant_profiles FROM authenticated;
+GRANT UPDATE (
+  first_name, last_name, phone, country, institution,
+  avatar_url, email_notifications, marketing_consent, profile_data,
+  last_login, updated_at
+) ON public.participant_profiles TO authenticated;
+-- Cancellation goes through a server route that checks identity before service write.
+REVOKE INSERT, UPDATE, DELETE ON public.participant_registrations FROM authenticated;
+
 -- 10. Prevent direct anonymous edits to any sensitive tables, irrespective of policies.
 REVOKE ALL ON public.conference_permissions, public.payment_history, public.payment_reminders FROM anon;
 REVOKE INSERT, UPDATE, DELETE ON public.conference_pages, public.supported_currencies FROM anon;
