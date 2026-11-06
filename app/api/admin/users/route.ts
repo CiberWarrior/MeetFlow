@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Create user profile
-    const { error: createProfileError } = await supabase
+    const { error: createProfileError } = await adminClient
       .from('user_profiles')
       .insert({
         id: authData.user.id,
