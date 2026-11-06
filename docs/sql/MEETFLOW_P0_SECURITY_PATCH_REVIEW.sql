@@ -174,12 +174,17 @@ REVOKE ALL ON FUNCTION public.log_user_activity(varchar,varchar,uuid,jsonb) FROM
 
 -- 8. Prevent privilege escalation through a self-editable user profile.
 -- Super Admin management routes must use the authorized service client.
+CREATE OR REPLACE FUNCTION private.mf_is_super_admin()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
+AS $
+  SELECT EXISTS (SELECT 1 FROM public.user_profiles up
+                 WHERE up.id = (SELECT auth.uid()) AND up.role = 'super_admin' AND up.active);
+$;
+REVOKE ALL ON FUNCTION private.mf_is_super_admin() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION private.mf_is_super_admin() TO authenticated;
 DROP POLICY IF EXISTS mf_superadmin_view_profiles ON public.user_profiles;
 CREATE POLICY mf_superadmin_view_profiles ON public.user_profiles
-FOR SELECT TO authenticated USING (
-  EXISTS (SELECT 1 FROM public.user_profiles up
-          WHERE up.id = (SELECT auth.uid()) AND up.role = 'super_admin' AND up.active)
-);
+FOR SELECT TO authenticated USING (private.mf_is_super_admin());
 REVOKE INSERT ON public.user_profiles FROM authenticated;
 REVOKE UPDATE ON public.user_profiles FROM authenticated;
 GRANT UPDATE (
