@@ -145,6 +145,62 @@ export function getFeeUnavailableReason(
   return 'inactive' // fallback
 }
 
+export const REGISTRATION_FEE_REQUIRED_ERROR = 'A registration fee is required'
+export const REGISTRATION_FEE_INVALID_ERROR = 'Invalid registration fee'
+export const REGISTRATION_FEE_UNAVAILABLE_ERROR = 'This registration fee is not available'
+
+export interface SelectedRegistrationFee {
+  id: string
+  name: string
+  priceGross: number
+  currency: string
+}
+
+export type RegistrationFeeSelection =
+  | { ok: true; fee: SelectedRegistrationFee | null }
+  | { ok: false; error: string }
+
+/**
+ * Decide whether a submitted fee id may be used for this conference.
+ * Prices come only from the supplied server-side fee options.
+ * A missing id is a free registration only when every configured fee has a
+ * gross price of zero, or the conference has no fees. A paid fee that is
+ * inactive, expired, sold out, or not yet valid is still a configured paid fee.
+ */
+export function selectRegistrationFee(
+  fees: RegistrationFeeOption[],
+  registrationFeeId: string | null | undefined
+): RegistrationFeeSelection {
+  const feeId = registrationFeeId?.trim() || null
+  const hasConfiguredPaidFee = fees.some((fee) => Number(fee.price_gross) > 0)
+
+  if (!feeId) {
+    if (hasConfiguredPaidFee) {
+      return { ok: false, error: REGISTRATION_FEE_REQUIRED_ERROR }
+    }
+    return { ok: true, fee: null }
+  }
+
+  const match = fees.find((fee) => fee.id === feeId)
+  if (!match) {
+    return { ok: false, error: REGISTRATION_FEE_INVALID_ERROR }
+  }
+  const priceGross = Number(match.price_gross)
+  if (!match.is_available || !Number.isFinite(priceGross) || priceGross < 0) {
+    return { ok: false, error: REGISTRATION_FEE_UNAVAILABLE_ERROR }
+  }
+
+  return {
+    ok: true,
+    fee: {
+      id: match.id,
+      name: match.name,
+      priceGross,
+      currency: match.currency || 'EUR',
+    },
+  }
+}
+
 /**
  * Build the list of fee options for the public registration form.
  * Returns all fees for the conference; invalid ones have is_available: false and disabled_reason set.

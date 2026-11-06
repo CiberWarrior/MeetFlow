@@ -13,6 +13,10 @@ import {
   checkRateLimit,
   createRateLimitHeaders,
 } from '@/lib/rate-limit'
+import {
+  getAvailableFeesForForm,
+  selectRegistrationFee,
+} from '@/lib/custom-registration-fees'
 
 export const dynamic = 'force-dynamic'
 
@@ -289,21 +293,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: message }, { status: 400 })
     }
 
+    // Price and availability come from this conference's fees. A missing or
+    // foreign fee id must not be stored as a free registration.
+    let feeOptions
+    try {
+      feeOptions = await getAvailableFeesForForm(
+        supabase,
+        validatedData.conference_id
+      )
+    } catch (feeError) {
+      log.error('Failed to load registration fees', feeError, {
+        conferenceId: validatedData.conference_id,
+        action: 'registration_fee_validation',
+      })
+      return NextResponse.json(
+        { error: 'Failed to load registration fees' },
+        { status: 500 }
+      )
+    }
+
+    const feeSelection = selectRegistrationFee(
+      feeOptions,
+      validatedData.registration_fee_id
+    )
+    if (!feeSelection.ok) {
+      log.warn('Registration fee rejected', {
+        conferenceId: validatedData.conference_id,
+        action: 'registration_fee_validation',
+      })
+      return NextResponse.json({ error: feeSelection.error }, { status: 400 })
+    }
+
     // Determine payment method and status (A7: free fee -> not_required)
     let paymentMethod: string | null = null
     let paymentStatus: string = 'not_required'
-    let feeAmount = 0
-    let feeCurrency = 'EUR'
-    if (validatedData.registration_fee_id) {
-      const { data: feeRow } = await supabase
-        .from('custom_registration_fees')
-        .select('price_gross, currency')
-        .eq('id', validatedData.registration_fee_id)
-        .eq('conference_id', validatedData.conference_id)
-        .single()
-      feeAmount = feeRow ? Number(feeRow.price_gross ?? 0) : 0
-      feeCurrency = (feeRow?.currency as string) || 'EUR'
-    }
+    const feeAmount = feeSelection.fee?.priceGross ?? 0
+    const feeCurrency = feeSelection.fee?.currency ?? 'EUR'
 
     // Resolve selected add-ons against conference settings
     const addonCatalog =
@@ -366,7 +391,7 @@ export async function POST(request: NextRequest) {
         custom_data: customDataWithPayer,
         participants: validatedData.participants || [],
         registration_fee_type: null, // Legacy column; new flow uses registration_fee_id only
-        registration_fee_id: validatedData.registration_fee_id ?? null,
+        registration_fee_id: feeSelection.fee?.id ?? null,
         selected_addons: selectedAddonsPayload,
         payment_method: paymentMethod,
         payment_status: paymentStatus, // Payment status based on preference
