@@ -57,21 +57,23 @@ USING (
           WHERE up.id = (SELECT auth.uid()) AND up.role = 'super_admin' AND up.active)
   OR EXISTS (SELECT 1 FROM public.conference_permissions cp
              WHERE cp.user_id = (SELECT auth.uid()) AND cp.conference_id = conference_id
-               AND cp.can_edit_conference)
+               AND cp.can_edit_conference
+               AND EXISTS (SELECT 1 FROM public.user_profiles up WHERE up.id = cp.user_id AND up.active))
 )
 WITH CHECK (
   EXISTS (SELECT 1 FROM public.user_profiles up
           WHERE up.id = (SELECT auth.uid()) AND up.role = 'super_admin' AND up.active)
   OR EXISTS (SELECT 1 FROM public.conference_permissions cp
              WHERE cp.user_id = (SELECT auth.uid()) AND cp.conference_id = conference_id
-               AND cp.can_edit_conference)
+               AND cp.can_edit_conference
+               AND EXISTS (SELECT 1 FROM public.user_profiles up WHERE up.id = cp.user_id AND up.active))
 );
 
--- 3. Financial tables: only the conference's payment managers may read/write.
+-- 3. Financial history is read-only to payment managers; server-only writes.
 ALTER TABLE public.payment_history ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS mf_payment_history_admin ON public.payment_history;
 CREATE POLICY mf_payment_history_admin ON public.payment_history
-FOR ALL TO authenticated
+FOR SELECT TO authenticated
 USING (
   EXISTS (
     SELECT 1 FROM public.registrations r
@@ -85,21 +87,8 @@ USING (
                      AND cp.conference_id = r.conference_id AND cp.can_manage_payments AND up.active)
       )
   )
-)
-WITH CHECK (
-  EXISTS (
-    SELECT 1 FROM public.registrations r
-    WHERE r.id = payment_history.registration_id
-      AND (
-        EXISTS (SELECT 1 FROM public.user_profiles up
-                WHERE up.id = (SELECT auth.uid()) AND up.role = 'super_admin' AND up.active)
-        OR EXISTS (SELECT 1 FROM public.conference_permissions cp
-                   JOIN public.user_profiles up ON up.id = cp.user_id
-                   WHERE cp.user_id = (SELECT auth.uid())
-                     AND cp.conference_id = r.conference_id AND cp.can_manage_payments AND up.active)
-      )
-  )
 );
+REVOKE INSERT, UPDATE, DELETE ON public.payment_history FROM authenticated;
 
 ALTER TABLE public.payment_reminders ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS mf_payment_reminders_admin ON public.payment_reminders;
@@ -145,8 +134,7 @@ AS $$
     SELECT 1 FROM public.user_profiles up
     JOIN public.conference_permissions cp ON cp.user_id = up.id
     JOIN public.participant_registrations pr ON pr.conference_id = cp.conference_id
-    WHERE up.id = (SELECT auth.uid()) AND up.role = 'conference_admin'
-      AND up.active AND pr.participant_id = p_participant_id
+    WHERE up.id = (SELECT auth.uid()) AND up.active AND pr.participant_id = p_participant_id
   );
 $$;
 REVOKE ALL ON FUNCTION private.mf_can_read_participant(uuid) FROM PUBLIC, anon;
@@ -178,12 +166,28 @@ DROP POLICY IF EXISTS "Allow authenticated read conferences" ON public.conferenc
 -- 7. Remove anonymous access to privileged RPCs and definer views.
 REVOKE ALL ON public.active_subscriptions FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.contact_inquiry_stats FROM PUBLIC, anon;
--- Retain authenticated stats read for existing Super Admin dashboard until
--- its API usage is migrated; prefer moving this to a server-side admin route.
+ALTER VIEW public.contact_inquiry_stats SET (security_invoker = true);
 REVOKE ALL ON FUNCTION public.get_subscription_limits(uuid) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.has_active_subscription(uuid) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.log_admin_action(varchar,varchar,uuid,jsonb) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.log_user_activity(varchar,varchar,uuid,jsonb) FROM PUBLIC, anon;
+
+-- 8. Prevent privilege escalation through a self-editable user profile.
+-- Super Admin management routes must use the authorized service client.
+DROP POLICY IF EXISTS mf_superadmin_view_profiles ON public.user_profiles;
+CREATE POLICY mf_superadmin_view_profiles ON public.user_profiles
+FOR SELECT TO authenticated USING (
+  EXISTS (SELECT 1 FROM public.user_profiles up
+          WHERE up.id = (SELECT auth.uid()) AND up.role = 'super_admin' AND up.active)
+);
+REVOKE INSERT ON public.user_profiles FROM authenticated;
+REVOKE UPDATE ON public.user_profiles FROM authenticated;
+GRANT UPDATE (
+  full_name, organization, phone, updated_at, last_login,
+  default_vat_percentage, vat_label, bank_account_number,
+  bank_account_holder, bank_name, swift_bic, bank_address,
+  bank_account_currency
+) ON public.user_profiles TO authenticated;
 
 -- 8. Prevent direct anonymous edits to any sensitive tables, irrespective of policies.
 REVOKE ALL ON public.conference_permissions, public.payment_history, public.payment_reminders FROM anon;
