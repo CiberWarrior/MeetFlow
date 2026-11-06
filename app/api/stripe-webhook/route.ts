@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
 import { createAdminClient } from '@/lib/supabase-admin'
-import { sendPaymentConfirmation, sendWelcomeEmail } from '@/lib/email'
+import { sendPaymentConfirmation } from '@/lib/email'
+import {
+  deliverOrganizerActivation,
+  resolveOrganizerAccount,
+} from '@/lib/organizer-activation'
 import Stripe from 'stripe'
 import { log } from '@/lib/logger'
 
@@ -571,7 +575,36 @@ async function handleSelfServiceOrderPayment(
     }
 
     if (order.status === 'paid') {
-      return NextResponse.json({ received: true, alreadyPaid: true })
+      const existingAccount = await resolveOrganizerAccount({
+        authAdmin: supabase.auth.admin,
+        profiles: supabase,
+        email: customerEmail,
+        fullName: customerName,
+        organization,
+      })
+      const activationEmailSent = existingAccount.ok
+        ? await deliverOrganizerActivation({
+            email: customerEmail,
+            fullName: customerName,
+            activationUrl: existingAccount.activationUrl,
+          })
+        : false
+
+      if (activationEmailSent === false) {
+        return NextResponse.json(
+          {
+            error: 'Subscription is already paid, but the activation email could not be sent',
+            alreadyPaid: true,
+          },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json({
+        received: true,
+        alreadyPaid: true,
+        activation_email_sent: activationEmailSent,
+      })
     }
 
     const provisioned = await provisionConferenceAdmin({
@@ -608,9 +641,22 @@ async function handleSelfServiceOrderPayment(
       subscriptionId: provisioned.subscriptionId,
     })
 
+    if (provisioned.activationEmailSent === false) {
+      log.error('Self-service subscription saved but activation email failed', undefined, {
+        orderId,
+        userId: provisioned.userId,
+        action: 'organizer_activation_email',
+      })
+      return NextResponse.json(
+        { error: 'Subscription saved, but the activation email could not be sent' },
+        { status: 500 }
+      )
+    }
+
     return NextResponse.json({
       received: true,
       subscriptionId: provisioned.subscriptionId,
+      activation_email_sent: provisioned.activationEmailSent,
     })
   } catch (error) {
     log.error('Error handling self-service order payment', error, {
@@ -621,6 +667,35 @@ async function handleSelfServiceOrderPayment(
       { status: 500 }
     )
   }
+}
+
+async function findExistingSubscription(
+  supabase: ReturnType<typeof createAdminClient>,
+  params: {
+    stripePaymentIntentId?: string | null
+    stripeInvoiceId?: string | null
+  }
+): Promise<{ id: string; user_id: string } | null> {
+  const lookups: Array<['stripe_payment_intent_id' | 'stripe_invoice_id', string]> = []
+  if (params.stripePaymentIntentId) {
+    lookups.push(['stripe_payment_intent_id', params.stripePaymentIntentId])
+  }
+  if (params.stripeInvoiceId) {
+    lookups.push(['stripe_invoice_id', params.stripeInvoiceId])
+  }
+
+  for (const [column, value] of lookups) {
+    const { data } = await supabase
+      .from('subscriptions')
+      .select('id, user_id')
+      .eq(column, value)
+      .maybeSingle()
+    if (data?.id && data.user_id) {
+      return { id: data.id, user_id: data.user_id }
+    }
+  }
+
+  return null
 }
 
 async function provisionConferenceAdmin(params: {
@@ -634,9 +709,16 @@ async function provisionConferenceAdmin(params: {
   currency: string
   stripeCustomerId?: string | null
   stripePaymentIntentId?: string | null
+  stripeSubscriptionId?: string | null
+  stripeInvoiceId?: string | null
   inquiryId?: string | null
 }): Promise<
-  | { ok: true; userId: string; subscriptionId: string }
+  | {
+      ok: true
+      userId: string
+      subscriptionId: string
+      activationEmailSent: boolean | null
+    }
   | { ok: false; error: string }
 > {
   const {
@@ -650,97 +732,110 @@ async function provisionConferenceAdmin(params: {
     currency,
     stripeCustomerId,
     stripePaymentIntentId,
+    stripeSubscriptionId,
+    stripeInvoiceId,
     inquiryId,
   } = params
 
-  const { data: existingUser } = await supabase.auth.admin.listUsers()
-  const userExists = existingUser?.users?.find(
-    (u: { email?: string }) => u.email?.toLowerCase() === email.toLowerCase()
-  )
+  const account = await resolveOrganizerAccount({
+    authAdmin: supabase.auth.admin,
+    profiles: supabase,
+    email,
+    fullName,
+    organization,
+  })
 
-  let userId: string
-  let createdNew = false
-  let tempPassword: string | null = null
+  if (!account.ok) {
+    log.error('Failed to prepare organizer account', undefined, { email })
+    return { ok: false, error: account.error }
+  }
 
-  if (userExists) {
-    userId = userExists.id
-  } else {
-    tempPassword = generateSecurePassword()
-    const { data: newUser, error: createUserError } =
-      await supabase.auth.admin.createUser({
-        email,
-        password: tempPassword,
-        email_confirm: true,
-        user_metadata: {
-          full_name: fullName,
-          organization: organization,
-          created_via: 'subscription_payment',
-        },
-      })
-
-    if (createUserError || !newUser.user) {
-      log.error('Failed to create user', createUserError, { email })
-      return { ok: false, error: 'Failed to create user' }
-    }
-
-    userId = newUser.user.id
-    createdNew = true
-
+  if (!account.profileExists) {
     const { error: profileError } = await supabase.from('user_profiles').insert({
-      id: userId,
+      id: account.userId,
       email,
       full_name: fullName,
       role: 'conference_admin',
       active: true,
-      organization: organization,
+      organization,
     })
 
     if (profileError) {
-      log.error('Failed to create user profile', profileError, { userId, email })
+      log.error('Failed to create user profile', profileError, {
+        userId: account.userId,
+        email,
+      })
+      if (account.created) {
+        await supabase.auth.admin.deleteUser(account.userId)
+      }
       return { ok: false, error: 'Failed to create user profile' }
     }
   }
 
-  if (createdNew && tempPassword) {
-    try {
-      await sendWelcomeEmail(email, fullName, tempPassword, 'Conference Platform')
-    } catch (emailError) {
-      log.error('Failed to send welcome email', emailError, { userId, email })
+  const existingSubscription = await findExistingSubscription(supabase, {
+    stripePaymentIntentId,
+    stripeInvoiceId,
+  })
+
+  let subscriptionId = existingSubscription?.id
+  const userId = existingSubscription?.user_id || account.userId
+
+  if (!subscriptionId) {
+    const startsAt = new Date()
+    const expiresAt = new Date()
+    if (billingCycle === 'monthly') {
+      expiresAt.setMonth(expiresAt.getMonth() + 1)
+    } else {
+      expiresAt.setFullYear(expiresAt.getFullYear() + 1)
     }
+
+    const { data: subscription, error: subError } = await supabase
+      .from('subscriptions')
+      .insert({
+        user_id: userId,
+        plan_id: planId,
+        inquiry_id: inquiryId || null,
+        status: 'active',
+        billing_cycle: billingCycle,
+        price,
+        currency,
+        stripe_customer_id: stripeCustomerId || null,
+        stripe_subscription_id: stripeSubscriptionId || null,
+        stripe_payment_intent_id: stripePaymentIntentId || null,
+        stripe_invoice_id: stripeInvoiceId || null,
+        starts_at: startsAt.toISOString(),
+        expires_at: expiresAt.toISOString(),
+      })
+      .select()
+      .single()
+
+    if (subError || !subscription) {
+      log.error('Failed to create subscription', subError, { userId, planId })
+      return { ok: false, error: 'Failed to create subscription' }
+    }
+
+    if (!subscription.id) {
+      return { ok: false, error: 'Failed to create subscription' }
+    }
+    subscriptionId = subscription.id
   }
 
-  const startsAt = new Date()
-  const expiresAt = new Date()
-  if (billingCycle === 'monthly') {
-    expiresAt.setMonth(expiresAt.getMonth() + 1)
-  } else {
-    expiresAt.setFullYear(expiresAt.getFullYear() + 1)
-  }
-
-  const { data: subscription, error: subError } = await supabase
-    .from('subscriptions')
-    .insert({
-      user_id: userId,
-      plan_id: planId,
-      inquiry_id: inquiryId || null,
-      status: 'active',
-      billing_cycle: billingCycle,
-      price,
-      currency,
-      stripe_customer_id: stripeCustomerId || null,
-      stripe_payment_intent_id: stripePaymentIntentId || null,
-      starts_at: startsAt.toISOString(),
-      expires_at: expiresAt.toISOString(),
-    })
-    .select()
-    .single()
-
-  if (subError || !subscription) {
-    log.error('Failed to create subscription', subError, { userId, planId })
+  if (!subscriptionId) {
     return { ok: false, error: 'Failed to create subscription' }
   }
 
-  return { ok: true, userId, subscriptionId: subscription.id }
+  const activationEmailSent = await deliverOrganizerActivation({
+    email,
+    fullName,
+    activationUrl: account.activationUrl,
+  })
+
+  return {
+    ok: true,
+    userId,
+    subscriptionId,
+    activationEmailSent,
+  }
 }
 
 /**
@@ -781,124 +876,30 @@ async function handleSubscriptionPayment(
       return NextResponse.json({ error: 'Inquiry not found' }, { status: 404 })
     }
 
-    // Check if user already exists (requires service role)
-    const { data: existingUser } = await supabase.auth.admin.listUsers()
-    const userExists = existingUser?.users?.find((u: { email?: string }) => u.email === customerEmail)
+    const provisioned = await provisionConferenceAdmin({
+      supabase,
+      email: customerEmail,
+      fullName: customerName,
+      organization: organization || null,
+      planId,
+      billingCycle,
+      price: (session.amount_total || 0) / 100,
+      currency: session.currency?.toUpperCase() || 'EUR',
+      stripeCustomerId: typeof session.customer === 'string' ? session.customer : null,
+      stripeSubscriptionId:
+        typeof session.subscription === 'string' ? session.subscription : null,
+      stripePaymentIntentId:
+        typeof session.payment_intent === 'string' ? session.payment_intent : null,
+      stripeInvoiceId: typeof session.invoice === 'string' ? session.invoice : null,
+      inquiryId,
+    })
 
-    let userId: string
-
-    if (userExists) {
-      userId = userExists.id
-      log.info('User already exists, using existing user', { userId, email: customerEmail })
-    } else {
-      // Create Conference Admin user in Supabase Auth (requires service role)
-      const tempPassword = generateSecurePassword()
-      
-      const { data: newUser, error: createUserError } = await supabase.auth.admin.createUser({
-        email: customerEmail,
-        password: tempPassword,
-        email_confirm: true,
-        user_metadata: {
-          full_name: customerName,
-          organization: organization,
-          created_via: 'subscription_payment',
-        },
-      })
-
-      if (createUserError || !newUser.user) {
-        log.error('Failed to create user', createUserError, {
-          email: customerEmail,
-          inquiryId,
-        })
-        return NextResponse.json({ error: 'Failed to create user' }, { status: 500 })
-      }
-
-      userId = newUser.user.id
-
-      // Create user profile
-      const { error: profileError } = await supabase
-        .from('user_profiles')
-        .insert({
-          id: userId,
-          email: customerEmail,
-          full_name: customerName,
-          role: 'conference_admin',
-          active: true,
-          organization: organization,
-        })
-
-      if (profileError) {
-        log.error('Failed to create user profile', profileError, {
-          userId,
-          email: customerEmail,
-        })
-        return NextResponse.json({ error: 'Failed to create user profile' }, { status: 500 })
-      }
-
-      // Send welcome email with credentials
-      try {
-        await sendWelcomeEmail(
-          customerEmail,
-          customerName,
-          tempPassword,
-          'Conference Platform'
-        )
-        log.info('Welcome email sent successfully', {
-          userId,
-          email: customerEmail,
-        })
-      } catch (emailError) {
-        log.error('Failed to send welcome email', emailError, {
-          userId,
-          email: customerEmail,
-        })
-      }
-      
-      log.info('New Conference Admin user created', {
-        userId,
-        email: customerEmail,
-        tempPassword: '[REDACTED]',
-      })
+    if (!provisioned.ok) {
+      return NextResponse.json({ error: provisioned.error }, { status: 500 })
     }
 
-    // Calculate subscription dates
-    const startsAt = new Date()
-    const expiresAt = new Date()
-    if (billingCycle === 'monthly') {
-      expiresAt.setMonth(expiresAt.getMonth() + 1)
-    } else {
-      expiresAt.setFullYear(expiresAt.getFullYear() + 1)
-    }
-
-    // Create subscription record
-    const { data: subscription, error: subError } = await supabase
-      .from('subscriptions')
-      .insert({
-        user_id: userId,
-        plan_id: planId,
-        inquiry_id: inquiryId,
-        status: 'active',
-        billing_cycle: billingCycle,
-        price: (session.amount_total || 0) / 100,
-        currency: session.currency?.toUpperCase() || 'EUR',
-        stripe_subscription_id: session.subscription,
-        stripe_customer_id: session.customer,
-        stripe_payment_intent_id: session.payment_intent as string,
-        stripe_invoice_id: session.invoice as string,
-        starts_at: startsAt.toISOString(),
-        expires_at: expiresAt.toISOString(),
-      })
-      .select()
-      .single()
-
-    if (subError) {
-      log.error('Failed to create subscription', subError, {
-        userId,
-        planId,
-        inquiryId,
-      })
-      return NextResponse.json({ error: 'Failed to create subscription' }, { status: 500 })
-    }
+    const userId = provisioned.userId
+    const subscription = { id: provisioned.subscriptionId }
 
     // Update payment offer status
     await supabase
@@ -927,7 +928,18 @@ async function handleSubscriptionPayment(
       planId,
     })
 
-    return NextResponse.json({ received: true, subscriptionId: subscription.id })
+    if (provisioned.activationEmailSent === false) {
+      return NextResponse.json(
+        { error: 'Subscription saved, but the activation email could not be sent' },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({
+      received: true,
+      subscriptionId: subscription.id,
+      activation_email_sent: provisioned.activationEmailSent,
+    })
   } catch (error) {
     log.error('Error handling subscription payment', error, {
       sessionId: session.id,
@@ -977,18 +989,4 @@ function extractRegistrationContact(registration: Record<string, any>): {
   const fullName = `${firstName} ${lastName}`.trim() || email
 
   return { email, firstName, lastName, fullName }
-}
-
-/**
- * Generate a secure random password
- */
-function generateSecurePassword(): string {
-  const length = 16
-  const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*'
-  let password = ''
-  const values = crypto.getRandomValues(new Uint8Array(length))
-  for (let i = 0; i < length; i++) {
-    password += charset[values[i] % charset.length]
-  }
-  return password
 }

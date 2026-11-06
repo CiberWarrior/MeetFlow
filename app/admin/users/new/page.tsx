@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation'
 import {
   UserPlus,
   Mail,
-  Lock,
   User,
   Phone,
   Building2,
@@ -30,7 +29,6 @@ export default function NewUserPage() {
   
   // Form state
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
   const [organization, setOrganization] = useState('')
@@ -57,6 +55,7 @@ export default function NewUserPage() {
   const [loadingConferences, setLoadingConferences] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const [successMessageKey, setSuccessMessageKey] = useState<'userCreatedMessage' | 'activationResent'>('userCreatedMessage')
 
   useEffect(() => {
     if (!authLoading && !isSuperAdmin) {
@@ -87,14 +86,8 @@ export default function NewUserPage() {
     setLoading(true)
 
     // Validation
-    if (!email || !password || !fullName) {
+    if (!email || !fullName) {
       setError(t('validationRequired'))
-      setLoading(false)
-      return
-    }
-
-    if (password.length < 8) {
-      setError(t('validationPasswordLength'))
       setLoading(false)
       return
     }
@@ -113,7 +106,6 @@ export default function NewUserPage() {
         },
         body: JSON.stringify({
           email,
-          password,
           full_name: fullName,
           phone: phone || undefined,
           organization: organization || undefined,
@@ -125,7 +117,14 @@ export default function NewUserPage() {
 
       const data = await response.json()
 
-      if (response.ok) {
+      if (response.ok && data.already_exists && !data.resent) {
+        setError(t('accountAlreadyExists'))
+        setLoading(false)
+      } else if (response.ok && data.activation_email_sent === false) {
+        setError(t('activationEmailFailed'))
+        setLoading(false)
+      } else if (response.ok) {
+        setSuccessMessageKey(data.resent ? 'activationResent' : 'userCreatedMessage')
         setSuccess(true)
         setTimeout(() => {
           router.push('/admin/users')
@@ -179,7 +178,7 @@ export default function NewUserPage() {
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-3">{t('userCreatedSuccess')}</h2>
           <p className="text-gray-600 mb-6">
-            {t('userCreatedMessage')}
+            {t(successMessageKey)}
           </p>
           <p className="text-sm text-gray-500">{t('redirectingToUsers')}</p>
         </div>
@@ -237,23 +236,8 @@ export default function NewUserPage() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                {t('password')} <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder={t('passwordPlaceholder')}
-                  minLength={8}
-                />
-              </div>
-              <p className="text-xs text-gray-500 mt-1">{t('passwordMinHint')}</p>
+            <div className="md:col-span-2">
+              <p className="text-sm text-gray-600">{t('activationHint')}</p>
             </div>
 
             <div>

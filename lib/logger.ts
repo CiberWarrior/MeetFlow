@@ -71,6 +71,24 @@ function maskSensitive(data: any): any {
   if (masked.refresh_token) {
     masked.refresh_token = '***'
   }
+  if (masked.token_hash) {
+    masked.token_hash = '***'
+  }
+  if (masked.hashed_token) {
+    masked.hashed_token = '***'
+  }
+  if (masked.email_otp) {
+    masked.email_otp = '***'
+  }
+  if (masked.action_link) {
+    masked.action_link = '***'
+  }
+  if (masked.activationUrl) {
+    masked.activationUrl = '***'
+  }
+  if (masked.activation_url) {
+    masked.activation_url = '***'
+  }
   if (masked.apiKey) {
     masked.apiKey = '***'
   }

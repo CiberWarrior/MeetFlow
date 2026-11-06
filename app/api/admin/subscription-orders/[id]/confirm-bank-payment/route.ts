@@ -3,27 +3,17 @@ import { z } from 'zod'
 import { requireSuperAdmin } from '@/lib/api-auth'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { handleApiError } from '@/lib/api-error'
-import { sendWelcomeEmail } from '@/lib/email'
 import { log } from '@/lib/logger'
-import crypto from 'crypto'
+import {
+  deliverOrganizerActivation,
+  resolveOrganizerAccount,
+} from '@/lib/organizer-activation'
 
 export const dynamic = 'force-dynamic'
 
 const bodySchema = z.object({
   verified: z.boolean(),
 })
-
-function generateSecurePassword(): string {
-  const length = 16
-  const charset =
-    'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*'
-  let password = ''
-  const values = crypto.getRandomValues(new Uint8Array(length))
-  for (let i = 0; i < length; i++) {
-    password += charset[values[i] % charset.length]
-  }
-  return password
-}
 
 /**
  * PATCH /api/admin/subscription-orders/[id]/confirm-bank-payment
@@ -77,88 +67,53 @@ export async function PATCH(
       return NextResponse.json({ ok: true, status: 'pending' })
     }
 
-    if (order.status === 'paid') {
-      return NextResponse.json({ ok: true, status: 'paid', alreadyPaid: true })
-    }
-
-    // Provision conference admin (same logic as Stripe webhook self-service)
     const email = order.email
     const fullName = order.full_name
     const organization = order.organization
 
-    const { data: listed, error: listError } = await supabase.auth.admin.listUsers()
-    if (listError) {
-      log.error('Failed to list auth users for bank order', listError, { orderId })
-      return NextResponse.json(
-        { error: 'Failed to look up user account' },
-        { status: 500 }
-      )
+    if (order.status === 'paid') {
+      const existingAccount = await resolveOrganizerAccount({
+        authAdmin: supabase.auth.admin,
+        profiles: supabase,
+        email,
+        fullName,
+        organization,
+      })
+      const activationEmailSent = existingAccount.ok
+        ? await deliverOrganizerActivation({
+            email,
+            fullName,
+            activationUrl: existingAccount.activationUrl,
+          })
+        : false
+
+      return NextResponse.json({
+        ok: true,
+        status: 'paid',
+        alreadyPaid: true,
+        activation_email_sent: activationEmailSent,
+      })
     }
 
-    const existing = listed?.users?.find(
-      (u: { email?: string }) => u.email?.toLowerCase() === email.toLowerCase()
-    )
+    const account = await resolveOrganizerAccount({
+      authAdmin: supabase.auth.admin,
+      profiles: supabase,
+      email,
+      fullName,
+      organization,
+    })
 
-    let userId: string
-    let tempPassword: string | null = null
+    if (!account.ok) {
+      log.error('Failed to prepare organizer for bank order', undefined, {
+        orderId,
+        email,
+      })
+      return NextResponse.json({ error: account.error }, { status: 500 })
+    }
 
-    if (existing) {
-      userId = existing.id
+    const userId = account.userId
 
-      const { data: existingProfile } = await supabase
-        .from('user_profiles')
-        .select('id, role')
-        .eq('id', userId)
-        .maybeSingle()
-
-      if (!existingProfile) {
-        const { error: profileError } = await supabase.from('user_profiles').insert({
-          id: userId,
-          email,
-          full_name: fullName,
-          role: 'conference_admin',
-          active: true,
-          organization,
-        })
-
-        if (profileError) {
-          log.error('Failed to create profile for existing auth user', profileError, {
-            orderId,
-            userId,
-          })
-          return NextResponse.json(
-            { error: 'Failed to create user profile' },
-            { status: 500 }
-          )
-        }
-      }
-    } else {
-      tempPassword = generateSecurePassword()
-      const { data: newUser, error: createError } =
-        await supabase.auth.admin.createUser({
-          email,
-          password: tempPassword,
-          email_confirm: true,
-          user_metadata: {
-            full_name: fullName,
-            organization,
-            created_via: 'subscription_bank_transfer',
-          },
-        })
-
-      if (createError || !newUser.user) {
-        log.error('Failed to create user for bank order', createError, {
-          orderId,
-          email,
-        })
-        return NextResponse.json(
-          { error: 'Failed to create user' },
-          { status: 500 }
-        )
-      }
-
-      userId = newUser.user.id
-
+    if (!account.profileExists) {
       const { error: profileError } = await supabase.from('user_profiles').insert({
         id: userId,
         email,
@@ -170,21 +125,13 @@ export async function PATCH(
 
       if (profileError) {
         log.error('Failed to create user profile', profileError, { orderId, userId })
+        if (account.created) {
+          await supabase.auth.admin.deleteUser(userId)
+        }
         return NextResponse.json(
           { error: 'Failed to create user profile' },
           { status: 500 }
         )
-      }
-
-      try {
-        await sendWelcomeEmail(
-          email,
-          fullName,
-          tempPassword,
-          'Conference Platform'
-        )
-      } catch (emailError) {
-        log.error('Welcome email failed', emailError, { orderId, email })
       }
     }
 
@@ -233,11 +180,18 @@ export async function PATCH(
       })
       .eq('id', orderId)
 
+    const activationEmailSent = await deliverOrganizerActivation({
+      email,
+      fullName,
+      activationUrl: account.activationUrl,
+    })
+
     return NextResponse.json({
       ok: true,
       status: 'paid',
       subscriptionId: subscription.id,
       userId,
+      activation_email_sent: activationEmailSent,
     })
   } catch (error) {
     return handleApiError(error, { action: 'confirm_subscription_bank_payment' })

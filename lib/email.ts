@@ -36,7 +36,6 @@ interface SendEmailParams {
   locale?: 'hr' | 'en'
   // Subscription-related
   loginUrl?: string
-  tempPassword?: string
   planName?: string
   paymentLinkUrl?: string
   // Abstract
@@ -519,113 +518,69 @@ export async function sendReviewerReminderEmail(params: {
 }
 
 
-/**
- * Send welcome email with login credentials (for new Conference Admin users)
- * Used for subscription payments (auto-created accounts)
- */
-export async function sendWelcomeEmail(
-  email: string,
-  fullName: string,
-  tempPassword: string,
-  planName: string
-): Promise<void> {
-  const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/admin-login`
-  
-  return sendEmail({
-    emailType: 'subscription_welcome',
-    email,
-    firstName: fullName,
-    tempPassword,
-    planName,
-    loginUrl,
-  })
+function escapeEmailText(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 /**
- * Send admin welcome email with login credentials (for manually created Conference Admin accounts)
- * This uses sendGenericEmail directly (Resend API) for better control and simpler implementation
+ * Sends a single-use organizer activation link. The message never includes a password.
  */
-export async function sendAdminWelcomeEmail(
-  email: string,
-  fullName: string,
-  password: string
-): Promise<void> {
-  const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/admin-login`
-  
+export async function sendOrganizerActivationEmail(params: {
+  email: string
+  fullName: string
+  activationUrl: string
+}): Promise<void> {
+  const name = escapeEmailText(params.fullName.trim() || 'there')
+  const activationUrl = escapeEmailText(params.activationUrl)
+
   const emailHtml = `
     <!DOCTYPE html>
     <html>
       <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Welcome to MeetFlow</title>
+        <title>Set your MeetFlow password</title>
       </head>
       <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
-          <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to MeetFlow! 🎉</h1>
+        <div style="background: #1e293b; padding: 30px; text-align: center; border-radius: 10px 10px 0 0;">
+          <h1 style="color: white; margin: 0; font-size: 24px;">Set your MeetFlow password</h1>
         </div>
-        <div style="background: white; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-          <p style="font-size: 16px; margin-bottom: 20px;">Dear ${fullName},</p>
-          <p style="font-size: 16px; margin-bottom: 20px;">
-            Your Conference Admin account has been successfully created! You can now access the MeetFlow dashboard to manage your conferences.
+        <div style="background: white; padding: 30px; border: 1px solid #e5e7eb; border-radius: 0 0 10px 10px;">
+          <p style="font-size: 16px;">Hello ${name},</p>
+          <p style="font-size: 16px;">
+            An organizer account is ready for ${escapeEmailText(params.email)}. Use the link below to choose your own password.
           </p>
-          
-          <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
-            <p style="margin: 0 0 10px 0; font-size: 14px; font-weight: bold;">Your Login Credentials:</p>
-            <p style="margin: 5px 0; font-size: 14px;"><strong>Email:</strong> ${email}</p>
-            <p style="margin: 5px 0; font-size: 14px;"><strong>Password:</strong> ${password}</p>
-          </div>
-          
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${loginUrl}" style="display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">
-              Access Dashboard
+          <p style="margin: 28px 0; text-align: center;">
+            <a href="${activationUrl}" style="display: inline-block; padding: 12px 24px; background-color: #1e293b; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">
+              Set password
             </a>
-          </div>
-          
-          <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #f59e0b;">
-            <p style="margin: 0; font-size: 14px; color: #92400e;">
-              <strong>⚠️ Security Note:</strong> Please change your password after your first login for security purposes.
-            </p>
-          </div>
-          
-          <p style="font-size: 16px; margin-top: 30px;">
-            If you have any questions or need assistance, please don't hesitate to contact us.
           </p>
-          
-          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
-          <p style="font-size: 12px; color: #6b7280; margin: 0;">
-            Best regards,<br>
-            MeetFlow Team
+          <p style="font-size: 14px; color: #4b5563;">
+            This link can be used once and expires. If it expires, ask a super admin to send a new one.
           </p>
+          <p style="font-size: 12px; color: #6b7280; word-break: break-all;">${activationUrl}</p>
         </div>
       </body>
     </html>
   `
-  
-  const emailText = `
-Welcome to MeetFlow!
 
-Dear ${fullName},
+  const emailText = `Hello ${params.fullName.trim() || 'there'},
 
-Your Conference Admin account has been successfully created! You can now access the MeetFlow dashboard to manage your conferences.
+An organizer account is ready for ${params.email}. Choose your own password with this single-use link:
 
-Your Login Credentials:
-Email: ${email}
-Password: ${password}
+${params.activationUrl}
 
-Access Dashboard: ${loginUrl}
+This link can be used once and expires. If it expires, ask a super admin to send a new one.
+`
 
-⚠️ Security Note: Please change your password after your first login for security purposes.
-
-If you have any questions or need assistance, please don't hesitate to contact us.
-
-Best regards,
-MeetFlow Team
-  `
-  
-  return sendGenericEmail({
-    to: email,
-    subject: 'Welcome to MeetFlow - Your Conference Admin Account is Ready',
+  await sendGenericEmail({
+    to: params.email,
+    subject: 'Set your MeetFlow organizer password',
     html: emailHtml,
     text: emailText,
   })

@@ -3,6 +3,11 @@ import { createAdminClient } from '@/lib/supabase-admin'
 import { requireSuperAdmin } from '@/lib/api-auth'
 import { handleApiError } from '@/lib/api-error'
 import { log } from '@/lib/logger'
+import {
+  deliverOrganizerActivation,
+  normalizeOrganizerEmail,
+  resolveOrganizerAccount,
+} from '@/lib/organizer-activation'
 
 export const dynamic = 'force-dynamic'
 
@@ -74,149 +79,108 @@ export async function POST(request: NextRequest) {
     const { user, profile, supabase } = await requireSuperAdmin()
 
     const body = await request.json()
-    const { 
-      email, 
-      password, 
-      full_name, 
-      phone, 
+    const {
+      email: rawEmail,
+      full_name,
+      phone,
       organization,
       role = 'conference_admin',
       conference_ids = [],
-      permissions = {}
+      permissions = {},
     } = body
 
     log.info('Creating new user', {
-      email,
+      email: rawEmail,
       role,
-      conferenceCount: conference_ids.length,
+      conferenceCount: Array.isArray(conference_ids) ? conference_ids.length : 0,
       createdBy: user.id,
     })
 
-    // Validate required fields
-    if (!email || !password || !full_name) {
+    const email = typeof rawEmail === 'string' ? normalizeOrganizerEmail(rawEmail) : null
+    const fullName = typeof full_name === 'string' ? full_name.trim() : ''
+    if (!email || !fullName) {
       return NextResponse.json(
-        { error: 'Email, password, and full name are required' },
+        { error: 'Email and full name are required' },
         { status: 400 }
       )
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: 'Invalid email format' },
-        { status: 400 }
-      )
+    if (role !== 'conference_admin' && role !== 'super_admin') {
+      return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
     }
 
-    // Validate password strength (min 8 characters)
-    if (password.length < 8) {
-      return NextResponse.json(
-        { error: 'Password must be at least 8 characters long' },
-        { status: 400 }
-      )
+    if (!Array.isArray(conference_ids)) {
+      return NextResponse.json({ error: 'Invalid conference selection' }, { status: 400 })
     }
 
-    // Create user in Supabase Auth using Admin Client (requires SERVICE_ROLE_KEY)
     const adminClient = createAdminClient()
-    const { data: authData, error: createAuthError } = await adminClient.auth.admin.createUser({
+    const account = await resolveOrganizerAccount({
+      authAdmin: adminClient.auth.admin,
+      profiles: supabase,
       email,
-      password,
-      email_confirm: true, // Auto-confirm email
-      user_metadata: {
-        full_name
-      }
+      fullName,
+      organization: organization || null,
     })
 
-    if (createAuthError) {
-      log.error('Auth user creation failed', createAuthError, {
-        email,
-        action: 'create_auth_user',
-      })
-      return NextResponse.json(
-        { error: createAuthError.message || 'Failed to create user in authentication system' },
-        { status: 400 }
-      )
+    if (!account.ok) {
+      const status = account.error === 'Invalid email format' ? 400 : 500
+      return NextResponse.json({ error: account.error }, { status })
     }
 
-    if (!authData.user) {
-      log.error('Auth user creation returned no user', undefined, {
+    if (account.profileExists) {
+      const activationEmailSent = await deliverOrganizerActivation({
         email,
-        action: 'create_auth_user',
+        fullName,
+        activationUrl: account.activationUrl,
       })
-      return NextResponse.json(
-        { error: 'Failed to create user' },
-        { status: 500 }
-      )
+
+      log.info('Existing organizer account left unchanged', {
+        userId: account.userId,
+        email,
+        activationEmailSent,
+      })
+
+      return NextResponse.json({
+        success: true,
+        already_exists: true,
+        resent: Boolean(account.activationUrl),
+        activation_email_sent: activationEmailSent === true,
+        user: {
+          id: account.userId,
+          email,
+          full_name: fullName,
+          role,
+        },
+      })
     }
 
-    log.info('User created in Auth', {
-      userId: authData.user.id,
+    const { error: createProfileError } = await supabase.from('user_profiles').insert({
+      id: account.userId,
       email,
+      full_name: fullName,
+      role,
+      phone: phone || null,
+      organization: organization || null,
+      active: true,
     })
-
-    // Create user profile
-    const { error: createProfileError } = await supabase
-      .from('user_profiles')
-      .insert({
-        id: authData.user.id,
-        email,
-        full_name,
-        role,
-        phone: phone || null,
-        organization: organization || null,
-        active: true
-      })
 
     if (createProfileError) {
       log.error('User profile creation failed', createProfileError, {
-        userId: authData.user.id,
+        userId: account.userId,
         email,
         action: 'create_user_profile',
       })
-      
-      // Rollback: Delete the auth user using Admin Client
-      await adminClient.auth.admin.deleteUser(authData.user.id)
-      
-      return NextResponse.json(
-        { error: 'Failed to create user profile' },
-        { status: 500 }
-      )
-    }
 
-    log.info('User profile created', {
-      userId: authData.user.id,
-      email,
-      role,
-    })
-
-    // Send welcome email with login credentials (for Conference Admin)
-    if (role === 'conference_admin') {
-      try {
-        const { sendAdminWelcomeEmail } = await import('@/lib/email')
-        await sendAdminWelcomeEmail(
-          email,
-          full_name,
-          password // Send the password that was set
-        )
-        log.info('Welcome email sent successfully', {
-          userId: authData.user.id,
-          email,
-        })
-      } catch (emailError) {
-        log.error('Failed to send welcome email', emailError, {
-          userId: authData.user.id,
-          email,
-          action: 'send_welcome_email',
-        })
-        // Don't fail user creation if email fails
+      if (account.created) {
+        await adminClient.auth.admin.deleteUser(account.userId)
       }
+
+      return NextResponse.json({ error: 'Failed to create user profile' }, { status: 500 })
     }
 
-    // If Conference Admin, assign conferences with permissions
     if (role === 'conference_admin' && conference_ids.length > 0) {
       const conferencePermissions = conference_ids.map((conferenceId: string) => ({
-        user_id: authData.user.id,
+        user_id: account.userId,
         conference_id: conferenceId,
         can_view_registrations: permissions.can_view_registrations ?? true,
         can_export_data: permissions.can_export_data ?? true,
@@ -226,7 +190,7 @@ export async function POST(request: NextRequest) {
         can_generate_certificates: permissions.can_generate_certificates ?? true,
         can_edit_conference: permissions.can_edit_conference ?? false,
         can_delete_data: permissions.can_delete_data ?? false,
-        granted_by: profile.id
+        granted_by: profile.id,
       }))
 
       const { error: permError } = await supabase
@@ -235,34 +199,36 @@ export async function POST(request: NextRequest) {
 
       if (permError) {
         log.error('Conference permissions assignment failed', permError, {
-          userId: authData.user.id,
+          userId: account.userId,
           email,
           conferenceIds: conference_ids,
           action: 'assign_permissions',
         })
-        log.warn('User created but permissions assignment failed', {
-          userId: authData.user.id,
-          email,
-        })
       } else {
         log.info('Conference permissions assigned', {
-          userId: authData.user.id,
+          userId: account.userId,
           email,
           conferenceCount: conference_ids.length,
         })
       }
     }
 
+    const activationEmailSent = await deliverOrganizerActivation({
+      email,
+      fullName,
+      activationUrl: account.activationUrl,
+    })
+
     return NextResponse.json(
       {
         success: true,
-        message: 'User created successfully',
+        activation_email_sent: activationEmailSent === true,
         user: {
-          id: authData.user.id,
+          id: account.userId,
           email,
-          full_name,
-          role
-        }
+          full_name: fullName,
+          role,
+        },
       },
       { status: 201 }
     )

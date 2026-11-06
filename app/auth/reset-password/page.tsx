@@ -47,26 +47,67 @@ function ResetPasswordContent() {
   const [isValidToken, setIsValidToken] = useState<boolean | null>(null)
 
   useEffect(() => {
-    const checkToken = async () => {
-      const hashParams = new URLSearchParams(window.location.hash.substring(1))
+    let cancelled = false
+
+    const verifySession = async () => {
+      const url = new URL(window.location.href)
+      const hashParams = new URLSearchParams(url.hash.replace(/^#/, ''))
       const accessToken = hashParams.get('access_token')
-      const type = hashParams.get('type')
+      const refreshToken = hashParams.get('refresh_token')
+      const linkFailed = url.searchParams.get('error') === 'invalid'
 
-      const urlParams = new URLSearchParams(window.location.search)
-      const token = urlParams.get('token') || accessToken
-      const resetType = urlParams.get('type') || type
+      url.hash = ''
+      url.searchParams.delete('token')
+      url.searchParams.delete('token_hash')
+      url.searchParams.delete('code')
+      url.searchParams.delete('access_token')
+      window.history.replaceState(null, '', `${url.pathname}${url.search}`)
 
-      if (token && resetType === 'recovery') {
-        setIsValidToken(true)
-      } else if (accessToken) {
-        setIsValidToken(true)
-      } else {
+      if (linkFailed) {
+        if (!cancelled) {
+          setIsValidToken(false)
+          setError(t('errorInvalidLink'))
+        }
+        return
+      }
+
+      if (accessToken || refreshToken) {
+        if (!accessToken || !refreshToken) {
+          if (!cancelled) {
+            setIsValidToken(false)
+            setError(t('errorInvalidLink'))
+          }
+          return
+        }
+
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        })
+        if (sessionError) {
+          if (!cancelled) {
+            setIsValidToken(false)
+            setError(t('errorInvalidLink'))
+          }
+          return
+        }
+      }
+
+      const { data, error: userError } = await supabase.auth.getUser()
+      if (cancelled) return
+      if (userError || !data.user) {
         setIsValidToken(false)
         setError(t('errorInvalidLink'))
+        return
       }
+
+      setIsValidToken(true)
     }
 
-    checkToken()
+    verifySession()
+    return () => {
+      cancelled = true
+    }
   }, [t])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -85,41 +126,35 @@ function ResetPasswordContent() {
 
     setLoading(true)
 
-    try {
-      const hashParams = new URLSearchParams(window.location.hash.substring(1))
-      const accessToken = hashParams.get('access_token')
-      const refreshToken = hashParams.get('refresh_token')
-
-      if (accessToken && refreshToken) {
-        const { error: sessionError } = await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        })
-
-        if (sessionError) {
-          throw sessionError
-        }
-      }
-
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: password,
-      })
-
-      if (updateError) {
-        throw updateError
-      }
-
-      setSuccess(true)
-      setError('')
-
-      setTimeout(() => {
-        router.push('/auth/admin-login?message=password_reset_success')
-      }, 2000)
-    } catch (error: any) {
-      console.error('Password reset error:', error)
-      setError(error.message || t('errorResetFailed'))
+    const { data: userData, error: userError } = await supabase.auth.getUser()
+    if (userError || !userData.user) {
+      setIsValidToken(false)
+      setError(t('errorInvalidLink'))
       setLoading(false)
+      return
     }
+
+    const { error: updateError } = await supabase.auth.updateUser({
+      password,
+    })
+
+    if (updateError) {
+      setError(t('errorResetFailed'))
+      setLoading(false)
+      return
+    }
+
+    try {
+      await supabase.auth.signOut()
+    } catch {
+      // The new password is already saved. The login page replaces this session.
+    }
+    setSuccess(true)
+    setError('')
+
+    setTimeout(() => {
+      router.push('/auth/admin-login?message=password_reset_success')
+    }, 2000)
   }
 
   if (isValidToken === null) {
@@ -158,14 +193,13 @@ function ResetPasswordContent() {
               </Link>
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   const email = prompt(t('promptEmail'))
-                  if (email) {
-                    supabase.auth.resetPasswordForEmail(email, {
-                      redirectTo: `${window.location.origin}/auth/reset-password`,
-                    })
-                    alert(t('alertResetSent'))
-                  }
+                  if (!email) return
+                  const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
+                  })
+                  alert(resetError ? t('errorResetFailed') : t('alertResetSent'))
                 }}
                 className="block w-full rounded-lg bg-slate-700 px-4 py-3 text-center font-semibold text-white transition-all hover:bg-slate-600"
               >

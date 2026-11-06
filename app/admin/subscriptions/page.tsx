@@ -201,11 +201,16 @@ export default function SubscriptionsPage() {
           body: JSON.stringify({ verified: true }),
         }
       )
+      const json = await res.json().catch(() => null)
       if (!res.ok) {
-        const json = await res.json().catch(() => null)
         throw new Error(json?.error || t('confirmBankOrderError'))
       }
       await loadRevenue()
+      if (json?.activation_email_sent === false) {
+        alert(t('activationEmailFailed'))
+      } else if (json?.alreadyPaid && json?.activation_email_sent === true) {
+        alert(t('activationEmailResent'))
+      }
     } catch (error) {
       const message =
         error instanceof Error ? error.message : t('confirmBankOrderError')
