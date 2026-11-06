@@ -1,0 +1,219 @@
+-- MeetFlow P0 RLS hardening candidate.
+-- REVIEW ONLY: do not apply before a verified backup and staging validation.
+-- Based on production schema inspected on 2026-11-06 (project eceiqrhvtxieoqjyvntf).
+-- This file is intentionally under docs/sql until reconciled migration history is established.
+BEGIN;
+
+-- 1. Authorization assignments: no anonymous access, no self-grant.
+ALTER TABLE public.conference_permissions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS mf_permissions_self_read ON public.conference_permissions;
+CREATE POLICY mf_permissions_self_read ON public.conference_permissions
+FOR SELECT TO authenticated USING (
+  user_id = (SELECT auth.uid())
+  OR EXISTS (
+    SELECT 1 FROM public.user_profiles up
+    WHERE up.id = (SELECT auth.uid()) AND up.role = 'super_admin' AND up.active
+  )
+);
+DROP POLICY IF EXISTS mf_permissions_superadmin_manage ON public.conference_permissions;
+CREATE POLICY mf_permissions_superadmin_manage ON public.conference_permissions
+FOR ALL TO authenticated
+USING (
+  EXISTS (SELECT 1 FROM public.user_profiles up
+          WHERE up.id = (SELECT auth.uid()) AND up.role = 'super_admin' AND up.active)
+)
+WITH CHECK (
+  EXISTS (SELECT 1 FROM public.user_profiles up
+          WHERE up.id = (SELECT auth.uid()) AND up.role = 'super_admin' AND up.active)
+);
+
+-- 2. Custom conference pages: public sees published pages of published/active conferences only.
+ALTER TABLE public.conference_pages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS mf_pages_public_read ON public.conference_pages;
+CREATE POLICY mf_pages_public_read ON public.conference_pages
+FOR SELECT TO anon, authenticated USING (
+  published AND EXISTS (
+    SELECT 1 FROM public.conferences c
+    WHERE c.id = conference_id AND c.published AND c.active
+  )
+);
+DROP POLICY IF EXISTS mf_pages_admin_read ON public.conference_pages;
+CREATE POLICY mf_pages_admin_read ON public.conference_pages
+FOR SELECT TO authenticated USING (
+  EXISTS (SELECT 1 FROM public.user_profiles up
+          WHERE up.id = (SELECT auth.uid()) AND up.role = 'super_admin' AND up.active)
+  OR EXISTS (
+    SELECT 1 FROM public.conference_permissions cp
+    JOIN public.user_profiles up ON up.id = cp.user_id
+    WHERE cp.user_id = (SELECT auth.uid()) AND cp.conference_id = conference_id
+      AND up.active AND cp.can_edit_conference
+  )
+);
+DROP POLICY IF EXISTS mf_pages_admin_write ON public.conference_pages;
+CREATE POLICY mf_pages_admin_write ON public.conference_pages
+FOR ALL TO authenticated
+USING (
+  EXISTS (SELECT 1 FROM public.user_profiles up
+          WHERE up.id = (SELECT auth.uid()) AND up.role = 'super_admin' AND up.active)
+  OR EXISTS (SELECT 1 FROM public.conference_permissions cp
+             WHERE cp.user_id = (SELECT auth.uid()) AND cp.conference_id = conference_id
+               AND cp.can_edit_conference
+               AND EXISTS (SELECT 1 FROM public.user_profiles up WHERE up.id = cp.user_id AND up.active))
+)
+WITH CHECK (
+  EXISTS (SELECT 1 FROM public.user_profiles up
+          WHERE up.id = (SELECT auth.uid()) AND up.role = 'super_admin' AND up.active)
+  OR EXISTS (SELECT 1 FROM public.conference_permissions cp
+             WHERE cp.user_id = (SELECT auth.uid()) AND cp.conference_id = conference_id
+               AND cp.can_edit_conference
+               AND EXISTS (SELECT 1 FROM public.user_profiles up WHERE up.id = cp.user_id AND up.active))
+);
+
+-- 3. Financial history is read-only to payment managers; server-only writes.
+ALTER TABLE public.payment_history ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS mf_payment_history_admin ON public.payment_history;
+CREATE POLICY mf_payment_history_admin ON public.payment_history
+FOR SELECT TO authenticated
+USING (
+  EXISTS (
+    SELECT 1 FROM public.registrations r
+    WHERE r.id = payment_history.registration_id
+      AND (
+        EXISTS (SELECT 1 FROM public.user_profiles up
+                WHERE up.id = (SELECT auth.uid()) AND up.role = 'super_admin' AND up.active)
+        OR EXISTS (SELECT 1 FROM public.conference_permissions cp
+                   JOIN public.user_profiles up ON up.id = cp.user_id
+                   WHERE cp.user_id = (SELECT auth.uid())
+                     AND cp.conference_id = r.conference_id AND cp.can_manage_payments AND up.active)
+      )
+  )
+);
+REVOKE INSERT, UPDATE, DELETE ON public.payment_history FROM authenticated;
+
+ALTER TABLE public.payment_reminders ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS mf_payment_reminders_admin ON public.payment_reminders;
+CREATE POLICY mf_payment_reminders_admin ON public.payment_reminders
+FOR ALL TO authenticated
+USING (
+  EXISTS (SELECT 1 FROM public.user_profiles up
+          WHERE up.id = (SELECT auth.uid()) AND up.role = 'super_admin' AND up.active)
+  OR EXISTS (SELECT 1 FROM public.conference_permissions cp
+             JOIN public.user_profiles up ON up.id = cp.user_id
+             WHERE cp.user_id = (SELECT auth.uid()) AND cp.conference_id = payment_reminders.conference_id
+               AND cp.can_manage_payments AND up.active)
+)
+WITH CHECK (
+  EXISTS (SELECT 1 FROM public.user_profiles up
+          WHERE up.id = (SELECT auth.uid()) AND up.role = 'super_admin' AND up.active)
+  OR EXISTS (SELECT 1 FROM public.conference_permissions cp
+             JOIN public.user_profiles up ON up.id = cp.user_id
+             WHERE cp.user_id = (SELECT auth.uid()) AND cp.conference_id = payment_reminders.conference_id
+               AND cp.can_manage_payments AND up.active)
+);
+
+-- 4. Reference catalogue is publicly readable, but writable by superadmin only.
+ALTER TABLE public.supported_currencies ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS mf_currencies_public_read ON public.supported_currencies;
+CREATE POLICY mf_currencies_public_read ON public.supported_currencies
+FOR SELECT TO anon, authenticated USING (true);
+DROP POLICY IF EXISTS mf_currencies_superadmin_write ON public.supported_currencies;
+CREATE POLICY mf_currencies_superadmin_write ON public.supported_currencies
+FOR ALL TO authenticated
+USING (EXISTS (SELECT 1 FROM public.user_profiles up
+              WHERE up.id = (SELECT auth.uid()) AND up.role = 'super_admin' AND up.active))
+WITH CHECK (EXISTS (SELECT 1 FROM public.user_profiles up
+                   WHERE up.id = (SELECT auth.uid()) AND up.role = 'super_admin' AND up.active));
+
+-- 5. Tenant-specific access for participants, preserving authorized cross-event history.
+-- SECURITY DEFINER helper prevents recursive RLS between participant tables.
+CREATE SCHEMA IF NOT EXISTS private;
+CREATE OR REPLACE FUNCTION private.mf_can_read_participant(p_participant_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
+AS $$
+  SELECT (SELECT auth.uid()) IS NOT NULL AND EXISTS (
+    SELECT 1 FROM public.user_profiles up
+    JOIN public.conference_permissions cp ON cp.user_id = up.id
+    JOIN public.participant_registrations pr ON pr.conference_id = cp.conference_id
+    WHERE up.id = (SELECT auth.uid()) AND up.active AND pr.participant_id = p_participant_id
+  );
+$$;
+REVOKE ALL ON FUNCTION private.mf_can_read_participant(uuid) FROM PUBLIC, anon;
+GRANT USAGE ON SCHEMA private TO authenticated;
+GRANT EXECUTE ON FUNCTION private.mf_can_read_participant(uuid) TO authenticated;
+DROP POLICY IF EXISTS admins_select_participant_profiles ON public.participant_profiles;
+CREATE POLICY admins_select_participant_profiles ON public.participant_profiles
+FOR SELECT TO authenticated USING (
+  EXISTS (SELECT 1 FROM public.user_profiles up
+          WHERE up.id = (SELECT auth.uid()) AND up.role = 'super_admin' AND up.active)
+  OR private.mf_can_read_participant(id)
+);
+DROP POLICY IF EXISTS admins_select_participant_registrations ON public.participant_registrations;
+CREATE POLICY admins_select_participant_registrations ON public.participant_registrations
+FOR SELECT TO authenticated USING (
+  EXISTS (SELECT 1 FROM public.user_profiles up
+          WHERE up.id = (SELECT auth.uid()) AND up.role = 'super_admin' AND up.active)
+  OR EXISTS (
+    SELECT 1 FROM public.conference_permissions cp
+    JOIN public.user_profiles up ON up.id = cp.user_id
+    WHERE cp.user_id = (SELECT auth.uid())
+      AND cp.conference_id = participant_registrations.conference_id AND up.active
+  )
+);
+
+-- 6. Remove unrestricted reading of ALL conferences by logged-in users.
+DROP POLICY IF EXISTS "Allow authenticated read conferences" ON public.conferences;
+
+-- 7. Allow one e-mail across multiple conferences, not duplicate in one.
+-- Precondition: no existing case-insensitive duplicates per conference.
+-- Existing registrations can have NULL conference_id/email (legacy records).
+CREATE UNIQUE INDEX IF NOT EXISTS mf_registrations_conference_email_unique
+  ON public.registrations (conference_id, lower(email))
+  WHERE conference_id IS NOT NULL AND email IS NOT NULL;
+ALTER TABLE public.registrations DROP CONSTRAINT IF EXISTS registrations_email_key;
+
+-- 8. Remove anonymous access to privileged RPCs and definer views.
+REVOKE ALL ON public.active_subscriptions FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON public.contact_inquiry_stats FROM PUBLIC, anon;
+ALTER VIEW public.contact_inquiry_stats SET (security_invoker = true);
+REVOKE ALL ON FUNCTION public.get_subscription_limits(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.has_active_subscription(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.log_admin_action(varchar,varchar,uuid,jsonb) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.log_user_activity(varchar,varchar,uuid,jsonb) FROM PUBLIC, anon;
+
+-- 9. Prevent privilege escalation through a self-editable user profile.
+-- Super Admin management routes must use the authorized service client.
+CREATE OR REPLACE FUNCTION private.mf_is_super_admin()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
+AS $
+  SELECT EXISTS (SELECT 1 FROM public.user_profiles up
+                 WHERE up.id = (SELECT auth.uid()) AND up.role = 'super_admin' AND up.active);
+$;
+REVOKE ALL ON FUNCTION private.mf_is_super_admin() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION private.mf_is_super_admin() TO authenticated;
+DROP POLICY IF EXISTS mf_superadmin_view_profiles ON public.user_profiles;
+CREATE POLICY mf_superadmin_view_profiles ON public.user_profiles
+FOR SELECT TO authenticated USING (private.mf_is_super_admin());
+REVOKE INSERT ON public.user_profiles FROM authenticated;
+REVOKE UPDATE ON public.user_profiles FROM authenticated;
+GRANT UPDATE (
+  full_name, organization, phone, updated_at, last_login,
+  default_vat_percentage, vat_label, bank_account_number,
+  bank_account_holder, bank_name, swift_bic, bank_address,
+  bank_account_currency
+) ON public.user_profiles TO authenticated;
+
+-- Participant self-service allows contact updates, never financial, loyalty, or role changes.
+REVOKE INSERT, DELETE, UPDATE ON public.participant_profiles FROM authenticated;
+GRANT UPDATE (
+  first_name, last_name, phone, country, institution,
+  avatar_url, email_notifications, marketing_consent, profile_data,
+  last_login, updated_at
+) ON public.participant_profiles TO authenticated;
+-- Cancellation goes through a server route that checks identity before service write.
+REVOKE INSERT, UPDATE, DELETE ON public.participant_registrations FROM authenticated;
+
+-- 10. Prevent direct anonymous edits to any sensitive tables, irrespective of policies.
+REVOKE ALL ON public.conference_permissions, public.payment_history, public.payment_reminders FROM anon;
+REVOKE INSERT, UPDATE, DELETE ON public.conference_pages, public.supported_currencies FROM anon;
+
+COMMIT;

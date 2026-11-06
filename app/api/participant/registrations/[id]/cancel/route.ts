@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
+import { createAdminClient } from '@/lib/supabase-admin'
 import { log } from '@/lib/logger'
 import { z } from 'zod'
 
@@ -89,7 +90,7 @@ export async function POST(
     }
 
     // Update registration status
-    const { error: updateError } = await supabase
+    const { error: updateError } = await createAdminClient()
       .from('participant_registrations')
       .update({
         status: 'cancelled',

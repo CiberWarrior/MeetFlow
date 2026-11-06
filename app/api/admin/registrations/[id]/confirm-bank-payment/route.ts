@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireConferencePermission } from '@/lib/api-auth'
 import { handleApiError, ApiError } from '@/lib/api-error'
 import { createServerClient } from '@/lib/supabase'
+import { createAdminClient } from '@/lib/supabase-admin'
 import { log } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
@@ -75,7 +76,7 @@ export async function PATCH(
     // 'adjustment' that reverses the amount. Non-fatal if it fails.
     const amount = Number(registration.payment_amount ?? 0)
     const currency = (registration.payment_currency as string) || 'EUR'
-    const { error: historyError } = await supabase.from('payment_history').insert({
+    const { error: historyError } = await createAdminClient().from('payment_history').insert({
       registration_id: registrationId,
       transaction_type: verified ? 'payment' : 'adjustment',
       amount: verified ? amount : -amount,

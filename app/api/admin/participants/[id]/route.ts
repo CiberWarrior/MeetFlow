@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireSuperAdmin } from '@/lib/api-auth'
+import { createAdminClient } from '@/lib/supabase-admin'
 import { handleApiError, ApiError } from '@/lib/api-error'
 import { log } from '@/lib/logger'
 
@@ -90,7 +91,7 @@ export async function PATCH(
     const { first_name, last_name, phone, country, institution } = body
 
     // Update participant profile
-    const { data: updatedParticipant, error: updateError } = await supabase
+    const { data: updatedParticipant, error: updateError } = await createAdminClient()
       .from('participant_profiles')
       .update({
         first_name,

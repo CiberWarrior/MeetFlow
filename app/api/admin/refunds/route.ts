@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireConferencePermission } from '@/lib/api-auth'
 import { handleApiError, ApiError } from '@/lib/api-error'
 import { stripe } from '@/lib/stripe'
+import { createAdminClient } from '@/lib/supabase-admin'
 import { log } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
@@ -133,7 +134,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Create payment history entry
-      await supabase.from('payment_history').insert({
+      await createAdminClient().from('payment_history').insert({
         registration_id: registrationId,
         transaction_type: 'refund',
         amount: -refundAmount,
@@ -194,7 +195,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Create payment history entry
-      await supabase.from('payment_history').insert({
+      await createAdminClient().from('payment_history').insert({
         registration_id: registrationId,
         transaction_type: 'refund',
         amount: -refund.amount / 100, // Convert from cents
