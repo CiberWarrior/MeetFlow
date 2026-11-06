@@ -163,7 +163,15 @@ FOR SELECT TO authenticated USING (
 -- 6. Remove unrestricted reading of ALL conferences by logged-in users.
 DROP POLICY IF EXISTS "Allow authenticated read conferences" ON public.conferences;
 
--- 7. Remove anonymous access to privileged RPCs and definer views.
+-- 7. Allow one e-mail across multiple conferences, not duplicate in one.
+-- Precondition: no existing case-insensitive duplicates per conference.
+-- Existing registrations can have NULL conference_id/email (legacy records).
+CREATE UNIQUE INDEX IF NOT EXISTS mf_registrations_conference_email_unique
+  ON public.registrations (conference_id, lower(email))
+  WHERE conference_id IS NOT NULL AND email IS NOT NULL;
+ALTER TABLE public.registrations DROP CONSTRAINT IF EXISTS registrations_email_key;
+
+-- 8. Remove anonymous access to privileged RPCs and definer views.
 REVOKE ALL ON public.active_subscriptions FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.contact_inquiry_stats FROM PUBLIC, anon;
 ALTER VIEW public.contact_inquiry_stats SET (security_invoker = true);
@@ -172,7 +180,7 @@ REVOKE ALL ON FUNCTION public.has_active_subscription(uuid) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.log_admin_action(varchar,varchar,uuid,jsonb) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.log_user_activity(varchar,varchar,uuid,jsonb) FROM PUBLIC, anon;
 
--- 8. Prevent privilege escalation through a self-editable user profile.
+-- 9. Prevent privilege escalation through a self-editable user profile.
 -- Super Admin management routes must use the authorized service client.
 CREATE OR REPLACE FUNCTION private.mf_is_super_admin()
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = ''
@@ -194,7 +202,7 @@ GRANT UPDATE (
   bank_account_currency
 ) ON public.user_profiles TO authenticated;
 
--- 8. Prevent direct anonymous edits to any sensitive tables, irrespective of policies.
+-- 10. Prevent direct anonymous edits to any sensitive tables, irrespective of policies.
 REVOKE ALL ON public.conference_permissions, public.payment_history, public.payment_reminders FROM anon;
 REVOKE INSERT, UPDATE, DELETE ON public.conference_pages, public.supported_currencies FROM anon;
 
