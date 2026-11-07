@@ -6,6 +6,7 @@ import { POST } from '@/app/api/contact/route'
 import { sendGenericEmail } from '@/lib/email'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { log } from '@/lib/logger'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 jest.mock('server-only', () => ({}))
 
@@ -25,6 +26,15 @@ jest.mock('@/lib/email', () => ({
 jest.mock('@/lib/supabase-admin', () => ({
   createAdminClient: jest.fn(),
 }))
+
+jest.mock('@/lib/rate-limit', () => ({
+  contactRateLimit: null,
+  getClientIP: () => '203.0.113.10',
+  checkRateLimit: jest.fn(),
+  createRateLimitHeaders: () => ({}),
+}))
+
+const checkRateLimitMock = checkRateLimit as jest.Mock
 
 const sendGenericEmailMock = sendGenericEmail as jest.Mock
 const createAdminClientMock = createAdminClient as jest.Mock
@@ -72,6 +82,7 @@ function quoteRequest() {
 describe('POST /api/contact', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    checkRateLimitMock.mockResolvedValue({ success: true, limit: 5, remaining: 4, reset: 0 })
     mockSavedInquiry()
   })
 
@@ -216,5 +227,16 @@ describe('POST /api/contact', () => {
       'Contact inquiry confirmation email sent',
       expect.objectContaining({ messageId: 'email_customer', inquiryId: 'inquiry-1' })
     )
+  })
+
+  it('returns 429 before saving when the contact rate limit is exceeded', async () => {
+    checkRateLimitMock.mockResolvedValue({ success: false, limit: 5, remaining: 0, reset: 0 })
+
+    const response = await POST(quoteRequest())
+
+    expect(response.status).toBe(429)
+    expect((await response.json()).code).toBe('rate_limited')
+    expect(createAdminClientMock).not.toHaveBeenCalled()
+    expect(sendGenericEmailMock).not.toHaveBeenCalled()
   })
 })

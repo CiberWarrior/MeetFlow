@@ -3,11 +3,26 @@ import { createAdminClient } from '@/lib/supabase-admin'
 import { sendGenericEmail } from '@/lib/email'
 import { getMobilePhoneIssue, normalizeMobilePhone } from '@/lib/mobile-phone'
 import { log } from '@/lib/logger'
+import {
+  contactRateLimit,
+  getClientIP,
+  checkRateLimit,
+  createRateLimitHeaders,
+} from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
+    const clientIp = getClientIP(request)
+    const rateLimitResult = await checkRateLimit(contactRateLimit, clientIp)
+    if (rateLimitResult && !rateLimitResult.success) {
+      return NextResponse.json(
+        { error: 'Too many messages. Please try again later.', code: 'rate_limited' },
+        { status: 429, headers: createRateLimitHeaders(rateLimitResult) }
+      )
+    }
+
     const body = await request.json()
     const {
       name,

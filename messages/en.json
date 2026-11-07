@@ -131,6 +131,7 @@
       "phoneHint": "Optional. The number must start with + and a country calling code, for example +385 91 234 5678.",
       "phoneMissingCountry": "Add + and the country calling code, for example +385 91 234 5678.",
       "phoneInvalid": "Use a single leading +, then 7 to 15 digits. Spaces, hyphens, and parentheses are removed.",
+      "rateLimited": "Too many messages from this connection. Please try again in an hour.",
       "serviceOptionPlatform": "Conference Management Platform",
       "serviceOptionWebsite": "Conference Website Development",
       "serviceOptionBoth": "Platform + Website",

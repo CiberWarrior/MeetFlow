@@ -208,6 +208,19 @@ export const emailLookupRateLimit = isConfigured && redis
   : null
 
 /**
+ * Public contact form rate limiter: 5 messages per hour per IP
+ * Applies to /api/contact and /api/conferences/[slug]/contact
+ */
+export const contactRateLimit = isConfigured && redis
+  ? new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(5, '1 h'),
+      analytics: true,
+      prefix: '@upstash/ratelimit/contact',
+    })
+  : null
+
+/**
  * Helper function to check rate limit
  * Returns null if rate limiting is disabled or not configured
  */

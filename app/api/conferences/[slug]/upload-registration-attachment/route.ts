@@ -7,19 +7,13 @@ import {
   checkRateLimit,
   createRateLimitHeaders,
 } from '@/lib/rate-limit'
+import {
+  resolveRegistrationUploadRules,
+  uploadContentType,
+  uploadExtension,
+} from '@/lib/registration-attachment'
 
 export const dynamic = 'force-dynamic'
-
-const DEFAULT_MAX_SIZE_MB = 10
-const DEFAULT_ALLOWED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png']
-const ALLOWED_MIME_TYPES = [
-  'application/pdf',
-  'image/jpeg',
-  'image/jpg',
-  'image/png',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-]
 
 /**
  * POST /api/conferences/[slug]/upload-registration-attachment
@@ -50,52 +44,11 @@ export async function POST(
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
 
-    let allowedExtensions = DEFAULT_ALLOWED_EXTENSIONS
-    if (allowedExtensionsRaw) {
-      try {
-        const parsed = JSON.parse(allowedExtensionsRaw)
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          allowedExtensions = parsed
-        }
-      } catch {
-        // Ignore malformed input, keep defaults
-      }
-    }
-
-    const fileExtension = file.name
-      .toLowerCase()
-      .substring(file.name.lastIndexOf('.'))
-    const isValidType =
-      ALLOWED_MIME_TYPES.includes(file.type) ||
-      allowedExtensions.includes(fileExtension)
-
-    if (!isValidType) {
-      return NextResponse.json(
-        {
-          error: 'Invalid file type',
-          details: `Allowed file types: ${allowedExtensions.join(', ')}`,
-        },
-        { status: 400 }
-      )
-    }
-
-    const maxFileSizeMb = maxFileSizeMbRaw ? parseInt(maxFileSizeMbRaw, 10) : DEFAULT_MAX_SIZE_MB
-    const maxSize = (Number.isFinite(maxFileSizeMb) && maxFileSizeMb > 0 ? maxFileSizeMb : DEFAULT_MAX_SIZE_MB) * 1024 * 1024
-    if (file.size > maxSize) {
-      return NextResponse.json(
-        {
-          error: 'File size too large',
-          details: `File size must be less than ${maxFileSizeMb}MB. Current size: ${(file.size / 1024 / 1024).toFixed(2)}MB`,
-        },
-        { status: 400 }
-      )
-    }
-
     const supabase = createAdminClient()
 
     const { data: conference, error: conferenceError } = await supabase
       .from('conferences')
-      .select('id')
+      .select('id, settings')
       .eq('slug', params.slug)
       .eq('published', true)
       .eq('active', true)
@@ -109,6 +62,41 @@ export async function POST(
       return NextResponse.json({ error: 'Conference not found' }, { status: 404 })
     }
 
+    // The browser may only narrow the conference's own rules (one field's limits).
+    let requestedExtensions: unknown
+    if (allowedExtensionsRaw) {
+      try {
+        requestedExtensions = JSON.parse(allowedExtensionsRaw)
+      } catch {
+        requestedExtensions = undefined
+      }
+    }
+    const rules = resolveRegistrationUploadRules(conference.settings, {
+      allowedExtensions: requestedExtensions,
+      maxFileSizeMb: maxFileSizeMbRaw,
+    })
+
+    const fileExtension = uploadExtension(file.name)
+    if (!rules.allowedExtensions.includes(fileExtension)) {
+      return NextResponse.json(
+        {
+          error: 'Invalid file type',
+          details: `Allowed file types: ${rules.allowedExtensions.join(', ')}`,
+        },
+        { status: 400 }
+      )
+    }
+
+    if (file.size > rules.maxSizeMb * 1024 * 1024) {
+      return NextResponse.json(
+        {
+          error: 'File size too large',
+          details: `File size must be less than ${rules.maxSizeMb}MB. Current size: ${(file.size / 1024 / 1024).toFixed(2)}MB`,
+        },
+        { status: 400 }
+      )
+    }
+
     const timestamp = Date.now()
     const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
     const filePath = `${conference.id}/${timestamp}_${sanitizedFileName}`
@@ -120,7 +108,7 @@ export async function POST(
     const uploadResult = await supabase.storage
       .from(bucketName)
       .upload(filePath, buffer, {
-        contentType: file.type || 'application/octet-stream',
+        contentType: uploadContentType(fileExtension),
         upsert: false,
       })
 

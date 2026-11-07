@@ -103,3 +103,102 @@ export async function openRegistrationAttachment(registrationId: string, ref: st
   }
   window.open(data.url, '_blank', 'noopener,noreferrer')
 }
+
+/** File types an organizer can pick for a 'file' registration field, plus .jpeg. */
+const UPLOAD_CONTENT_TYPES: Record<string, string> = {
+  '.pdf': 'application/pdf',
+  '.doc': 'application/msword',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.txt': 'text/plain',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+}
+
+/** Bank transfer proof has no field settings; it uses these. */
+export const BANK_PROOF_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png']
+export const DEFAULT_UPLOAD_MAX_MB = 10
+/** Same ceiling the field editor offers. */
+export const UPLOAD_MAX_MB_CEILING = 50
+
+export type RegistrationUploadRules = {
+  allowedExtensions: string[]
+  maxSizeMb: number
+}
+
+function normalizeExtension(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim().toLowerCase()
+  const ext = trimmed.startsWith('.') ? trimmed : `.${trimmed}`
+  return ext in UPLOAD_CONTENT_TYPES ? ext : null
+}
+
+function boundedMb(value: unknown): number | null {
+  const parsed = typeof value === 'number' ? value : parseInt(String(value ?? ''), 10)
+  if (!Number.isFinite(parsed) || parsed <= 0) return null
+  return Math.min(Math.floor(parsed), UPLOAD_MAX_MB_CEILING)
+}
+
+/**
+ * Upload rules come from the conference settings, never from the browser.
+ * The union covers bank proof and every 'file' registration field. A browser
+ * hint (one field's own limits) may only narrow these rules.
+ */
+export function resolveRegistrationUploadRules(
+  settings: unknown,
+  hint?: { allowedExtensions?: unknown; maxFileSizeMb?: unknown }
+): RegistrationUploadRules {
+  const allowed = new Set<string>(BANK_PROOF_EXTENSIONS)
+  let maxSizeMb = DEFAULT_UPLOAD_MAX_MB
+
+  const fields =
+    settings && typeof settings === 'object'
+      ? (settings as { custom_registration_fields?: unknown }).custom_registration_fields
+      : undefined
+
+  if (Array.isArray(fields)) {
+    for (const field of fields) {
+      if (!field || typeof field !== 'object') continue
+      const f = field as { type?: unknown; fileTypes?: unknown; maxFileSize?: unknown }
+      if (f.type !== 'file') continue
+      const types = Array.isArray(f.fileTypes) && f.fileTypes.length > 0
+        ? f.fileTypes
+        : ['.pdf', '.doc', '.docx']
+      for (const type of types) {
+        const ext = normalizeExtension(type)
+        if (ext) allowed.add(ext)
+        if (ext === '.jpg') allowed.add('.jpeg')
+      }
+      maxSizeMb = Math.max(maxSizeMb, boundedMb(f.maxFileSize) ?? DEFAULT_UPLOAD_MAX_MB)
+    }
+  }
+
+  let allowedExtensions = Array.from(allowed)
+
+  if (Array.isArray(hint?.allowedExtensions) && hint.allowedExtensions.length > 0) {
+    const requested = new Set(
+      hint.allowedExtensions
+        .map(normalizeExtension)
+        .filter((ext): ext is string => ext !== null)
+    )
+    if (requested.has('.jpg')) requested.add('.jpeg')
+    const narrowed = allowedExtensions.filter((ext) => requested.has(ext))
+    if (narrowed.length > 0) allowedExtensions = narrowed
+  }
+
+  const hintedMb = boundedMb(hint?.maxFileSizeMb)
+  if (hintedMb !== null) maxSizeMb = Math.min(maxSizeMb, hintedMb)
+
+  return { allowedExtensions, maxSizeMb }
+}
+
+/** Lowercase extension including the dot, or '' when the name has none. */
+export function uploadExtension(fileName: string): string {
+  const index = fileName.lastIndexOf('.')
+  return index > 0 ? fileName.slice(index).toLowerCase() : ''
+}
+
+/** Stored content type is derived from the checked extension, not the browser. */
+export function uploadContentType(extension: string): string {
+  return UPLOAD_CONTENT_TYPES[extension] || 'application/octet-stream'
+}

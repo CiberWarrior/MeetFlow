@@ -131,6 +131,7 @@
       "phoneHint": "Nije obavezno. Broj mora početi s + i pozivnim brojem države, npr. +385 91 234 5678.",
       "phoneMissingCountry": "Dodajte + i pozivni broj države, npr. +385 91 234 5678.",
       "phoneInvalid": "Na početku smije biti samo jedan +, zatim 7 do 15 znamenki. Razmaci, crtice i zagrade se uklanjaju.",
+      "rateLimited": "Previše poruka s ove veze. Pokušajte ponovno za sat vremena.",
       "serviceOptionPlatform": "Platforma za upravljanje konferencijama",
       "serviceOptionWebsite": "Izrada web stranice konferencije",
       "serviceOptionBoth": "Platforma + web stranica",

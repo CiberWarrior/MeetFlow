@@ -93,6 +93,9 @@ function ContactForm() {
         if (data.code === 'missing_country' || data.code === 'invalid_mobile') {
           throw new Error(data.code)
         }
+        if (data.code === 'rate_limited') {
+          throw new Error(t('rateLimited'))
+        }
         throw new Error(data.error || t('error'))
       }
 
