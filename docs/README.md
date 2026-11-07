@@ -16,6 +16,23 @@
 
 ---
 
+## launch-readiness — First client audit drafts (7 Nov 2026)
+
+Analysis only. These files do not approve a deploy, SQL, or production access.
+
+| File | Purpose |
+|------|---------|
+| [EXECUTIVE_SUMMARY.md](launch-readiness/EXECUTIVE_SUMMARY.md) | GO / NO-GO summary and the largest risks |
+| [CURRENT_STATE.md](launch-readiness/CURRENT_STATE.md) | Architecture, inventory, git, and what is still unknown |
+| [RISK_REGISTER.md](launch-readiness/RISK_REGISTER.md) | P0/P1/P2 risks with evidence and launch impact |
+| [CRITICAL_USER_JOURNEYS.md](launch-readiness/CRITICAL_USER_JOURNEYS.md) | Critical flows, evidence, and manual checks |
+| [FIRST_CLIENT_MVP.md](launch-readiness/FIRST_CLIENT_MVP.md) | Minimum first-conference scope |
+| [FIRST_CLIENT_QUESTIONS.md](launch-readiness/FIRST_CLIENT_QUESTIONS.md) | Questions for the event agency |
+| [LAUNCH_BACKLOG.md](launch-readiness/LAUNCH_BACKLOG.md) | Ordered tickets before a controlled pilot |
+| [30_DAY_LAUNCH_PLAN.md](launch-readiness/30_DAY_LAUNCH_PLAN.md) | Week-by-week plan with exit criteria |
+
+---
+
 ## 01_REFERENCE — Feature guides and system docs
 
 ### Authentication & Users

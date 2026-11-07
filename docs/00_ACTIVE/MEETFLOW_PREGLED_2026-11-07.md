@@ -110,15 +110,15 @@ Ovih sedam commitova više nije samo lokalno:
 4. `b21abfc` — iznimke design-linta za postojeći e-mail markup i admin naglaske.
 5. `d85ecd5` — `AGENTS.md` i `docs/AI_HANDOFF.md`.
 6. `6e0d1c2` — prilozi registracije provjeravaju se na serveru prema postavkama konferencije (tip i veličina, strop 50 MB). Tip datoteke se izvodi iz ekstenzije, ne iz onoga što preglednik pošalje. Oba kontakt formulara: najviše 5 poruka na sat po IP-u, kad je Upstash uključen.
-7. `9f00274` — migracija `066`: uklanja javni INSERT na `contact_inquiries`. Pripremljena je za ručni SQL Editor. Nije potvrđeno da je izvršena. `supabase db push` se ne smije koristiti.
+7. `9f00274` — migracija `066`: uklanja javni INSERT na `contact_inquiries`. Renata je 7. 11. 2026. javila da je SQL u Supabase SQL Editoru prošao. Ta izjava nije ponovno provjerena upitom u bazu. SQL se ne smije ponovno pokretati. `supabase db push` se ne smije koristiti.
 
-Izvan tih commitova lokalno su ostali necommitani `docs/00_ACTIVE/MEETFLOW_PREGLED_2026-11-07.md`, izmjena u `docs/README.md` i nepraćeni `supabase/.temp/` (lokalni Supabase cache; ne ide u commit).
+Pregled i indeks dokumentacije su na `origin/main` u commitu `ff324ab`. Nepraćeni `supabase/.temp/` ostaje lokalni Supabase cache i ne ide u commit.
 
 ## Što još nije zatvoreno
 
 - **Povijest migracija.** Shema `supabase_migrations` postoji, tablica `schema_migrations` ne. CLI nije povezan. Lokalne datoteke `001`–`066` nisu dokazano usklađene s produkcijom. `supabase db push` i `migration repair` ne smiju se pokretati dok se ne napravi provjerena baseline.
-- **Migracija `066`** čeka ručno izvršavanje i zasebnu provjeru, ako već nije odrađena izvan ovog zapisa.
-- **Deploy** commita `9f00274` Vercel je označio kao dovršen. To ne dokazuje ručni prolaz kroz registraciju, aktivaciju organizatora ni kontakt formu. Migracija `066` i dalje nije potvrđeno izvršena.
+- **Migracija `066`** je, prema Renatinoj prijavi 7. 11. 2026., uspješno izvršena u SQL Editoru. Popis politika nakon toga nije ponovno čitan.
+- **Deploy** commita `9f00274` Vercel je označio kao dovršen. To ne dokazuje ručni prolaz kroz registraciju, aktivaciju organizatora ni kontakt formu.
 - **Backup** je prijavljen, ali obnova nije testirana.
 - Prije pusha, 7. 11., prošlo je 12 testnih datoteka vezanih uz ove commitove: 58 testova, svi prolaze. Stariji dashboard testovi iz handoffa (6. 11.: 4 pala zbog mocka `useSearchParams`) nisu ponovno pokretani.
 
@@ -126,4 +126,4 @@ Izvan tih commitova lokalno su ostali necommitani `docs/00_ACTIVE/MEETFLOW_PREGL
 
 Proizvod je funkcionalno širok: konferencija, registracija, kotizacije, sažeci, recenzije, program, check-in, certifikati, CMS, plaćanja i pretplate organizatora. Zadnja dva tjedna rada nisu širila opseg. Zatvarala su rupe: javni upisi u bazu, javni prilozi, lozinke u e-mailu, validacija datoteka i kontakt formi, te pouzdanost potvrde registracije.
 
-Sljedeći smisleni korak nije nova funkcija. To je ručno i provjereno stanje migracije `066`, odvojeno od bilo kakvog `db push`, te kratki prolaz kroz registraciju s privitkom, aktivaciju organizatora i kontakt formu na produkciji.
+Sljedeći smisleni korak nije nova funkcija. Na produkciji treba poslati jednu kontakt poruku s međunarodnim brojem telefona. Kod sljedećeg poziva organizatora e-mail treba imati aktivacijski link, a ne lozinku. Ako postoji testna registracija, jedan dopušteni privitak treba proći upload. `supabase db push` i dalje ne smije ići.

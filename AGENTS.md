@@ -28,3 +28,15 @@
 - Report exactly what changed, which checks ran, their results, and what remains untested. Never describe a feature as working merely because code exists or a mocked test passes.
 - Separate locally verified facts, user-reported facts, assumptions, and live-state unknowns. Repository migrations do not prove production state or migration-history entries.
 - Report blockers and missing evidence instead of inventing configuration, results, or workarounds. Update the handoff when documentation changes are in scope, keeping exactly one recommended next task.
+
+## Agent skills
+
+Installed from `mattpocock/skills` into `.agents/skills/`. User-invoked skills run when requested (`/grill-with-docs`, `/to-spec`, `/to-tickets`, `/implement`, `/ask-matt`). Model-invoked skills (`grilling`, `domain-modeling`, `tdd`, `code-review`, `diagnosing-bugs`) apply when the task fits. They do not override the approval rules above. `/implement` does not commit unless the user asks.
+
+### Issue tracker
+
+GitHub Issues in `CiberWarrior/MeetFlow`. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.

@@ -1,8 +1,14 @@
 # MeetFlow AI handoff
 
-Snapshot: 2026-11-06 (Europe/Zagreb).
+Snapshot: 2026-11-07 (Europe/Zagreb).
 Repository: `/Users/renchi/Documents/Cursor/MeetFlow`.
-Latest update: close-out of Security Fix 01 and Security Fix 02. Documentation only. No production connection, SQL, migration command, commit, push, or deployment in this update.
+Latest update: launch-readiness drafts in `docs/launch-readiness/`. No production connection, SQL, migration command, application code change, or deployment was made in this documentation update. The user-reported manual run of migration `066` remains as recorded below.
+
+The 2026-11-06 sections below stay as the earlier close-out. Where they disagree with this note, this note wins.
+
+**User-reported, 2026-11-07.** Renata ran `supabase/migrations/066_drop_public_insert_contact_inquiries.sql` in the Supabase SQL Editor and reported that the query succeeded. This session did not query production to list policies. Do not run that SQL again. It drops `Anyone can insert contact inquiries` on `public.contact_inquiries` without `IF EXISTS`.
+
+`origin/main` is `ff324ab` (`docs: add the 7 November product and git status snapshot`). Migration `064` is already committed and was applied earlier. Do not run it again. `supabase/.temp/` stays untracked. Do not run `supabase db push`, `supabase migration repair`, or insert migration-history rows.
 
 ## Verified locally
 
@@ -92,4 +98,4 @@ This pass also predates the close-out. Migration `065` now exists and is committ
 
 ## Exactly one recommended next task
 
-Prepare a verified production migration baseline before any future migration. Confirm which local migration versions, from `001` through `065` except the absent `034`, `047`, `048`, and `049`, are already applied. Commit migration `064` separately when that commit is requested. Do not run `supabase db push`, `supabase migration repair`, or another remote migration command, and do not insert history rows, until that baseline is explicitly approved. Security Fix 01 and Security Fix 02 stay closed while this history work remains blocked.
+On production, send one contact-form message with an international phone number and confirm it still arrives. When the next organizer is invited, confirm the email contains a single-use activation link and does not contain a password. If a test registration is available, upload one allowed attachment and confirm it is stored. Use `docs/launch-readiness/` as the scope and risk record. Do not run `supabase db push`, `supabase migration repair`, or insert migration-history rows. The migration baseline remains blocked until a later, explicitly approved pass. Security Fix 01, Security Fix 02, and the user-reported `066` drop stay closed.
