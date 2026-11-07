@@ -9,6 +9,7 @@
 | File | Purpose |
 |------|---------|
 | [PROJECT_CONTEXT.md](00_ACTIVE/PROJECT_CONTEXT.md) | Canonical project rules, domain terms, non-negotiable decisions |
+| [MEETFLOW_PREGLED_2026-11-07.md](00_ACTIVE/MEETFLOW_PREGLED_2026-11-07.md) | Status snapshot for sharing: product, architecture, and recent git |
 | [DEPLOYMENT_CHECKLIST.md](00_ACTIVE/DEPLOYMENT_CHECKLIST.md) | Production deploy checklist (Vercel + Supabase + Stripe + env vars) |
 | [FINISH_AND_TEST_CHECKLIST.md](00_ACTIVE/FINISH_AND_TEST_CHECKLIST.md) | Pre-release checklist: lint, tests, manual flows |
 | [LOCALHOST_TESTING_CHECKLIST.md](00_ACTIVE/LOCALHOST_TESTING_CHECKLIST.md) | Local dev testing scenarios |
