@@ -8,6 +8,24 @@
         "value": "arial",
         "createdAt": "2026-11-06T16:09:17.502Z",
         "reason": "Existing transactional email CSS in the registration API, not a UI font choice. Security Fix 02 only changes attachment validation."
+      },
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "lib/email.ts"
+        ],
+        "createdAt": "2026-11-06T21:05:07.300Z",
+        "reason": "Agent: pre-existing welcome-email markup outside the registration confirmation change; this task must not restyle unrelated email HTML"
+      },
+      {
+        "rule": "ai-color-palette",
+        "value": "*",
+        "files": [
+          "app/admin/subscriptions/page.tsx"
+        ],
+        "createdAt": "2026-11-06T22:02:50.043Z",
+        "reason": "Agent: existing admin KPI indigo accents; this edit only reports activation email failure"
       }
     ]
   }
