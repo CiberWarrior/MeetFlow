@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { sendGenericEmail } from '@/lib/email'
+import { getMobilePhoneIssue, normalizeMobilePhone } from '@/lib/mobile-phone'
 import { log } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
@@ -36,6 +37,25 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const rawPhone = typeof phone === 'string' ? phone : ''
+    const phoneIssue = getMobilePhoneIssue(rawPhone)
+    if (phoneIssue === 'missing_country') {
+      return NextResponse.json(
+        {
+          error: 'Mobile number is missing + and the country calling code',
+          code: 'missing_country',
+        },
+        { status: 400 }
+      )
+    }
+    if (phoneIssue) {
+      return NextResponse.json(
+        { error: 'Invalid mobile number', code: 'invalid_mobile' },
+        { status: 400 }
+      )
+    }
+    const normalizedPhone = normalizeMobilePhone(rawPhone)
+
     // Get client IP and user agent for tracking
     const ip = request.headers.get('x-forwarded-for') || 
                request.headers.get('x-real-ip') || 
@@ -54,7 +74,7 @@ export async function POST(request: NextRequest) {
         name,
         email,
         organization,
-        phone: phone || null,
+        phone: normalizedPhone || null,
         conference_type: conferenceType || null,
         expected_attendees: expectedAttendees || null,
         service_type: serviceType || null,
@@ -82,10 +102,11 @@ export async function POST(request: NextRequest) {
 
     // Send notification email to admin
     try {
-      await sendInquiryNotificationEmail(inquiry)
+      const notification = await sendInquiryNotificationEmail(inquiry)
       log.info('Contact inquiry notification email sent', {
         inquiryId: inquiry.id,
         email,
+        messageId: notification.id,
         action: 'contact_inquiry_notification',
       })
     } catch (emailError) {
@@ -98,10 +119,11 @@ export async function POST(request: NextRequest) {
 
     // Send confirmation email to customer
     try {
-      await sendCustomerConfirmationEmail(inquiry)
+      const confirmation = await sendCustomerConfirmationEmail(inquiry)
       log.info('Contact inquiry confirmation email sent', {
         inquiryId: inquiry.id,
         email,
+        messageId: confirmation.id,
         action: 'contact_inquiry_confirmation',
       })
     } catch (emailError) {
@@ -185,7 +207,7 @@ interface ContactInquiry {
 }
 
 // Send notification email to admin team
-async function sendInquiryNotificationEmail(inquiry: ContactInquiry) {
+async function sendInquiryNotificationEmail(inquiry: ContactInquiry): Promise<{ id: string }> {
   const subject = `🔔 New Inquiry: ${escapeText(inquiry.organization)} - ${escapeText(inquiry.expected_attendees || 'Size not specified')}`
   
   const html = `
@@ -303,7 +325,7 @@ View in admin panel: ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000
   // Send to admin email (you should configure this in your environment variables)
   const adminEmail = process.env.ADMIN_EMAIL || 'screatives.info@gmail.com'
   
-  await sendGenericEmail({
+  return sendGenericEmail({
     to: adminEmail,
     subject,
     html,
@@ -312,7 +334,7 @@ View in admin panel: ${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000
 }
 
 // Send confirmation email to customer
-async function sendCustomerConfirmationEmail(inquiry: ContactInquiry) {
+async function sendCustomerConfirmationEmail(inquiry: ContactInquiry): Promise<{ id: string }> {
   const subject = `Thank you for contacting MeetFlow`
   
   const html = `
@@ -388,7 +410,7 @@ The MeetFlow Team
 MeetFlow - Modern Conference Management Platform
   `
 
-  await sendGenericEmail({
+  return sendGenericEmail({
     to: inquiry.email,
     subject,
     html,

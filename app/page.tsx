@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { useTranslations } from 'next-intl'
 import Footer from '@/components/Footer'
 import { showSuccess, showError } from '@/utils/toast'
+import { getMobilePhoneIssue, normalizeMobilePhone } from '@/lib/mobile-phone'
+import './quote-form.css'
 import {
   ArrowRight,
   Upload,
@@ -42,6 +44,14 @@ function ContactForm() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle')
+  const [phoneError, setPhoneError] = useState<string | null>(null)
+
+  const phoneMessage = (value: string) => {
+    const issue = getMobilePhoneIssue(value)
+    if (issue === 'missing_country') return t('phoneMissingCountry')
+    if (issue) return t('phoneInvalid')
+    return null
+  }
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -50,6 +60,7 @@ function ContactForm() {
       ...formData,
       [e.target.name]: e.target.value,
     })
+    if (e.target.name === 'phone') setPhoneError(null)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -57,18 +68,31 @@ function ContactForm() {
     setIsSubmitting(true)
     setSubmitStatus('idle')
 
+    const mobileError = phoneMessage(formData.phone)
+    if (mobileError) {
+      setPhoneError(mobileError)
+      setIsSubmitting(false)
+      return
+    }
+
     try {
       const response = await fetch('/api/contact', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          phone: normalizeMobilePhone(formData.phone),
+        }),
       })
 
       const data = await response.json()
 
       if (!response.ok) {
+        if (data.code === 'missing_country' || data.code === 'invalid_mobile') {
+          throw new Error(data.code)
+        }
         throw new Error(data.error || t('error'))
       }
 
@@ -86,7 +110,14 @@ function ContactForm() {
       })
     } catch (error) {
       console.error('Contact form error:', error)
-      const errorMessage = error instanceof Error ? error.message : t('errorOccurred')
+      const phoneErrorText =
+        error instanceof Error && error.message === 'missing_country'
+          ? t('phoneMissingCountry')
+          : error instanceof Error && error.message === 'invalid_mobile'
+            ? t('phoneInvalid')
+            : null
+      const errorMessage = phoneErrorText ?? (error instanceof Error ? error.message : t('errorOccurred'))
+      if (phoneErrorText) setPhoneError(phoneErrorText)
       setSubmitStatus('error')
       showError(errorMessage)
     } finally {
@@ -94,13 +125,16 @@ function ContactForm() {
     }
   }
 
+  const fieldClassName =
+    'quote-field w-full px-4 py-3 border-2 border-gray-300 rounded-lg bg-white transition-colors'
+
   return (
     <div className="bg-gradient-to-br from-white to-gray-50 rounded-2xl p-8 md:p-10 shadow-2xl border-2 border-gray-200">
       <div className="mb-6">
         <h3 className="text-2xl font-bold text-gray-900 mb-2">{t('requestQuote')}</h3>
         <p className="text-gray-600">{t('fillForm')}</p>
       </div>
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="quote-form space-y-6">
         <div className="grid md:grid-cols-2 gap-6">
           <div>
             <label
@@ -116,7 +150,7 @@ function ContactForm() {
               required
               value={formData.name}
               onChange={handleChange}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+              className={fieldClassName}
               placeholder={t('placeholderName')}
             />
           </div>
@@ -135,7 +169,7 @@ function ContactForm() {
               required
               value={formData.email}
               onChange={handleChange}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+              className={fieldClassName}
               placeholder={t('placeholderEmail')}
             />
           </div>
@@ -155,7 +189,7 @@ function ContactForm() {
               required
               value={formData.organization}
               onChange={handleChange}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+              className={fieldClassName}
               placeholder={t('placeholderOrg')}
             />
         </div>
@@ -172,11 +206,25 @@ function ContactForm() {
               type="tel"
               id="phone"
               name="phone"
+              inputMode="tel"
+              autoComplete="tel"
               value={formData.phone}
               onChange={handleChange}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+              onBlur={() => setPhoneError(phoneMessage(formData.phone))}
+              aria-invalid={phoneError ? true : undefined}
+              aria-describedby={phoneError ? 'phone-error' : 'phone-hint'}
+              className={fieldClassName}
               placeholder={t('placeholderPhone')}
             />
+            {phoneError ? (
+              <p id="phone-error" className="mt-2 text-sm text-red-700">
+                {phoneError}
+              </p>
+            ) : (
+              <p id="phone-hint" className="mt-2 text-sm text-gray-500">
+                {t('phoneHint')}
+              </p>
+            )}
           </div>
 
           <div>
@@ -191,7 +239,7 @@ function ContactForm() {
               name="conferenceType"
               value={formData.conferenceType}
               onChange={handleChange}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+              className={fieldClassName}
             >
               <option value="">{t('selectType')}</option>
               <option value="virtual">{t('typeVirtual')}</option>
@@ -214,7 +262,7 @@ function ContactForm() {
               name="expectedAttendees"
               value={formData.expectedAttendees}
               onChange={handleChange}
-              className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+              className={fieldClassName}
             >
               <option value="">{t('selectRange')}</option>
                 <option value="1-50">1-50</option>
@@ -238,7 +286,7 @@ function ContactForm() {
                 name="serviceType"
                 value={formData.serviceType}
                 onChange={handleChange}
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+                className={fieldClassName}
               >
                 <option value="">{t('selectService')}</option>
                 <option value="platform">{t('serviceOptionPlatform')}</option>
@@ -263,7 +311,7 @@ function ContactForm() {
             rows={6}
             value={formData.message}
             onChange={handleChange}
-            className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all resize-none"
+            className={`${fieldClassName} resize-none`}
             placeholder={t('placeholderMessage')}
           />
         </div>

@@ -301,6 +301,54 @@ export default function InquiriesPage() {
     }
   }
 
+  const handleDeleteInquiry = async (inquiry: ContactInquiry) => {
+    if (!confirm(t('deleteConfirm', { name: inquiry.name }))) return
+
+    try {
+      setProcessing(true)
+
+      // Deleting an inquiry cascades to its payment offers. Keep those records.
+      const { count: offerCount, error: offerError } = await supabase
+        .from('payment_offers')
+        .select('id', { count: 'exact', head: true })
+        .eq('inquiry_id', inquiry.id)
+
+      if (offerError) throw offerError
+      if ((offerCount ?? 0) > 0) {
+        showError(t('cannotDeleteInquiryWithOffers'))
+        return
+      }
+
+      const { data: deleted, error } = await supabase
+        .from('contact_inquiries')
+        .delete()
+        .eq('id', inquiry.id)
+        .select('id')
+
+      if (error) throw error
+      // RLS can silently match zero rows; do not report success then.
+      if (!deleted || deleted.length === 0) {
+        throw new Error('Inquiry was not deleted')
+      }
+
+      if (selectedInquiry?.id === inquiry.id) {
+        setDetailsModalOpen(false)
+        setUpdateModalOpen(false)
+        setOfferModalOpen(false)
+        setSelectedInquiry(null)
+      }
+
+      await loadInquiries()
+      await loadStats()
+      showSuccess(t('inquiryDeleted'))
+    } catch (error) {
+      console.error('Error deleting inquiry:', error)
+      showError(t('failedToDeleteInquiry'))
+    } finally {
+      setProcessing(false)
+    }
+  }
+
   const prepareExportData = () => {
     return filteredInquiries.map((inquiry) => ({
       'Date': new Date(inquiry.created_at).toLocaleDateString(),
@@ -795,6 +843,14 @@ export default function InquiriesPage() {
                           className="text-green-600 hover:text-green-700 text-sm font-medium"
                         >
                           {t('update')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteInquiry(inquiry)}
+                          disabled={processing}
+                          className="text-red-600 hover:text-red-700 text-sm font-medium disabled:opacity-50"
+                        >
+                          {t('delete')}
                         </button>
                       </div>
                     </td>

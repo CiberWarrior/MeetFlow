@@ -110,16 +110,17 @@ export async function sendGenericEmail(params: {
   subject: string
   html: string
   text: string
-}): Promise<void> {
+}): Promise<{ id: string }> {
   const resendApiKey = process.env.RESEND_API_KEY
 
   if (!resendApiKey) {
-    log.warn('RESEND_API_KEY not configured - email will not be sent', {
+    const error = new Error('RESEND_API_KEY is not configured')
+    log.error('RESEND_API_KEY not configured - email will not be sent', error, {
       to: params.to,
       subject: params.subject,
       function: 'sendGenericEmail',
     })
-    return
+    throw error
   }
 
   try {
@@ -150,12 +151,17 @@ export async function sendGenericEmail(params: {
     }
 
     const result = await response.json()
+    if (!result?.id || typeof result.id !== 'string') {
+      throw new Error('Resend did not return a message id')
+    }
+
     log.info('Generic email sent successfully', {
       to: params.to,
       subject: params.subject,
       messageId: result.id,
       function: 'sendGenericEmail',
     })
+    return { id: result.id }
   } catch (error) {
     log.error('Error sending generic email', error, {
       to: params.to,
