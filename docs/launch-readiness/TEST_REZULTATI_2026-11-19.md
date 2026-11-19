@@ -6,9 +6,10 @@ Lokalni prolaz. Produkcija, SQL i Supabase naredbe nisu pokretani. Okolina je la
 
 | Naredba | Rezultat |
 | --- | --- |
-| Testovi | 163 prolazi, 0 pada (22 suiteova). Izlaz 0. Ponovno pokrenuto nakon popravka mocka. |
-| Lint | Izlaz 0, ponovno nakon popravka mocka. ESLint nema grešaka ni upozorenja. |
-| Build | Izlaz 0, ponovno nakon popravka mocka. Next.js 14.2.33, `Compiled successfully`. Grešaka builda nema. |
+| Testovi | 163 prolazi, 0 pada (22 suiteova). Izlaz 0. Zadnji prolaz 2,51 s, nakon pusha. |
+| Lint | Izlaz 0, ponovno nakon pusha. ESLint nema grešaka ni upozorenja. |
+| Build | Izlaz 0, ponovno nakon pusha. Next.js 14.2.33, `Compiled successfully`. Grešaka builda nema. |
+| Vercel | Produkcija https://meetflow-conference.vercel.app servira `fc8aa8f`, stanje READY. Samo čitanje. |
 
 ## Popravak testova
 

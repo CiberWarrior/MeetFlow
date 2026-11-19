@@ -20,7 +20,7 @@ export interface CustomRegistrationFee {
   updated_at: string
 }
 
-/** Input when admin creates/updates a fee. New flow: net amount + VAT %; backend computes gross. */
+/** Input when admin creates/updates a fee. The fee form sends the VAT-inclusive amount with prices_include_vat. */
 export interface CustomRegistrationFeeInput {
   name: string
   valid_from: string

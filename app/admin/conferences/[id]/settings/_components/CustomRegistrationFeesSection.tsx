@@ -12,8 +12,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import type { CustomRegistrationFeeAdmin } from '@/types/custom-registration-fee'
-import { formatPriceWithoutZeros } from '@/utils/pricing'
-import { calculatePriceWithVAT, calculatePriceWithoutVAT } from '@/utils/pricing'
+import { calculatePriceWithoutVAT, formatPriceWithoutZeros } from '@/utils/pricing'
 import { showSuccess, showError } from '@/utils/toast'
 
 interface CustomRegistrationFeesSectionProps {
@@ -28,7 +27,7 @@ type FeeFormData = {
   valid_from: string
   valid_to: string
   is_active: boolean
-  /** Iznos bez PDV-a (net) */
+  /** Iznos s PDV-om. Sudionik plaća upravo ovaj iznos. */
   priceInput: number
   /** PDV postotak (npr. 25 za Hrvatsku); razdvojeno od iznosa da može biti drugi postotak za drugu državu */
   vatPercentage: number
@@ -128,7 +127,7 @@ export default function CustomRegistrationFeesSection({
       valid_from: fee.valid_from,
       valid_to: fee.valid_to,
       is_active: fee.is_active,
-      priceInput: fee.price_net,
+      priceInput: fee.price_gross,
       vatPercentage: inferredVat,
       capacity: fee.capacity,
       display_order: fee.display_order,
@@ -176,7 +175,8 @@ export default function CustomRegistrationFeesSection({
               valid_from: formData.valid_from,
               valid_to: formData.valid_to,
               is_active: formData.is_active,
-              price_net: formData.priceInput,
+              price_gross: formData.priceInput,
+              prices_include_vat: true,
               vat_percentage: formData.vatPercentage,
               capacity: formData.capacity,
               display_order: formData.display_order,
@@ -212,7 +212,8 @@ export default function CustomRegistrationFeesSection({
               valid_from: formData.valid_from,
               valid_to: formData.valid_to,
               is_active: formData.is_active,
-              price_net: formData.priceInput,
+              price_gross: formData.priceInput,
+              prices_include_vat: true,
               vat_percentage: formData.vatPercentage,
               capacity: formData.capacity,
               currency,
@@ -325,10 +326,9 @@ export default function CustomRegistrationFeesSection({
     }
   }
 
-  const previewNet = formData.priceInput
-  const previewGross =
+  const previewNet =
     formData.vatPercentage > 0
-      ? calculatePriceWithVAT(formData.priceInput, formData.vatPercentage)
+      ? calculatePriceWithoutVAT(formData.priceInput, formData.vatPercentage)
       : formData.priceInput
 
   return (
@@ -370,7 +370,7 @@ export default function CustomRegistrationFeesSection({
                 formData={formData}
                 setFormData={setFormData}
                 currency={currency}
-                previewGross={previewGross}
+                previewNet={previewNet}
                 saving={saving}
                 onSubmit={submitFee}
                 onCancel={closeForm}
@@ -465,7 +465,7 @@ export default function CustomRegistrationFeesSection({
                       formData={formData}
                       setFormData={setFormData}
                       currency={currency}
-                      previewGross={previewGross}
+                      previewNet={previewNet}
                       saving={saving}
                       onSubmit={submitFee}
                       onCancel={closeForm}
@@ -511,7 +511,7 @@ function FeeForm({
   formData,
   setFormData,
   currency,
-  previewGross,
+  previewNet,
   saving,
   onSubmit,
   onCancel,
@@ -520,7 +520,7 @@ function FeeForm({
   formData: FeeFormData
   setFormData: React.Dispatch<React.SetStateAction<FeeFormData>>
   currency: string
-  previewGross: number
+  previewNet: number
   saving: boolean
   onSubmit: () => void
   onCancel: () => void
@@ -606,10 +606,11 @@ function FeeForm({
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs text-gray-600 mb-1">
-              {t('feeNetAmountLabel', { currency }) || `Net amount (${currency})`}
+            <label htmlFor="fee-price-input" className="block text-xs text-gray-600 mb-1">
+              {t('feeGrossAmountLabel', { currency }) || `Gross amount (${currency})`}
             </label>
             <input
+              id="fee-price-input"
               type="number"
               min="0"
               step="0.01"
@@ -646,10 +647,10 @@ function FeeForm({
           </div>
           <div>
             <label className="block text-xs text-gray-600 mb-1">
-              {t('feeGrossAmountLabel', { currency }) || `Gross amount (${currency})`}
+              {t('feeNetAmountLabel', { currency }) || `Net amount (${currency})`}
             </label>
             <div className="px-3 h-10 flex items-center bg-gray-100 rounded-lg text-sm font-medium text-gray-800">
-              {formatPriceWithoutZeros(previewGross)} {currency}
+              {formatPriceWithoutZeros(previewNet)} {currency}
             </div>
             <p className="text-xs text-gray-500 mt-0.5">
               {t('feeGrossComputedHint') || 'Calculated automatically'}
@@ -657,6 +658,7 @@ function FeeForm({
           </div>
         </div>
         <p className="text-xs text-gray-500 mt-1">
+          {t('pricesGross') || 'Prices are entered with VAT included.'}{' '}
           {t('feeVatHint') || 'e.g. 25 (HR), 19 (DE)'}
         </p>
       </div>

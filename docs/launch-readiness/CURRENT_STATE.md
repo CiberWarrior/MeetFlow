@@ -99,7 +99,7 @@ Dopuna 19. 11. 2026., lokalni `git status` bez fetcha, neposredno prije commita 
 
 Shema `supabase_migrations` postoji, tablica `schema_migrations` ne. DOCUMENTED ONLY. Zato se `supabase db push` i `migration repair` ne smiju pokretati.
 
-Produkcijski URL iz dokumentacije: https://meetflow-conference.vercel.app. Je li na njemu `ff324ab`: UNKNOWN.
+Produkcijski URL iz dokumentacije: https://meetflow-conference.vercel.app. Je li na njemu `ff324ab`: na 19. 11. više nije. Domena servira deploy `dpl_9wfmXfEHcLRRixat85TCjf8AvsQg`, stanje READY, commit `fc8aa8f`. To je samo čitanje Vercela. Migracija `066` nije pokretana.
 
 ## Što ova analiza nije radila
 
@@ -111,9 +111,9 @@ Ponovljeno isti dan, nakon prvog prolaza. Produkcija, SQL i Supabase CLI nisu di
 
 | Naredba | Ishod | Oznaka |
 | --- | --- | --- |
-| `npm test -- --runInBand --watchman=false --ci` | izlaz 0 nakon popravka mocka; 22 suiteova prošlo; 163 testova prošlo, 0 palo; 1,95 s | VERIFIED BY EXECUTED TEST |
-| `npm run lint` | izlaz 0 nakon popravka mocka; ESLint: `No ESLint warnings or errors` | VERIFIED BY EXECUTED TEST |
-| `npm run build` | izlaz 0 nakon popravka mocka; Next.js 14.2.33; `Compiled successfully`; sve navedene rute su dinamičke (`ƒ`) | VERIFIED BY EXECUTED TEST |
+| `npm test -- --runInBand --watchman=false --ci` | izlaz 0, ponovno nakon pusha; 22 suiteova prošlo; 163 testova prošlo, 0 palo; 2,51 s | VERIFIED BY EXECUTED TEST |
+| `npm run lint` | izlaz 0, ponovno nakon pusha; ESLint: `No ESLint warnings or errors` | VERIFIED BY EXECUTED TEST |
+| `npm run build` | izlaz 0, ponovno nakon pusha; Next.js 14.2.33; `Compiled successfully` | VERIFIED BY EXECUTED TEST |
 
 ### Testovi admin nadzorne ploče
 
