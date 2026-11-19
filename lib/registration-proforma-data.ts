@@ -28,13 +28,14 @@ export async function buildProformaPdfForRegistration(
   let iban = ''
   let bankName: string | null = null
   let swiftBic: string | null = null
-  let issuerAddress: string | null = null
+  // user_profiles has no address columns yet, so the issuer address stays empty.
+  const issuerAddress: string | null = null
 
   if (conference.owner_id) {
     const { data: ownerProfile } = await supabase
       .from('user_profiles')
       .select(
-        'bank_account_number, bank_account_holder, bank_name, swift_bic, organization, full_name, address, city, country'
+        'bank_account_number, bank_account_holder, bank_name, swift_bic, organization, full_name'
       )
       .eq('id', conference.owner_id)
       .maybeSingle()
@@ -48,9 +49,6 @@ export async function buildProformaPdfForRegistration(
         conference.name
       bankName = ownerProfile.bank_name || null
       swiftBic = ownerProfile.swift_bic || null
-      issuerAddress = [ownerProfile.address, ownerProfile.city, ownerProfile.country]
-        .filter(Boolean)
-        .join(', ') || null
     }
   }
 

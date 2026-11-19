@@ -86,13 +86,44 @@ function resetTables() {
       swift_bic: 'TESTHR2X',
       organization: 'e-Tours d.o.o.',
       full_name: 'Mirela Gaspar',
-      address: 'Ulica grada Vukovara 5/1',
-      city: 'Zagreb',
-      country: 'Croatia',
     },
   ]
   tables.custom_registration_fees = []
   tables.registrations = []
+}
+
+// Columns that exist in supabase/migrations. Like PostgREST, a select that names
+// any other column fails and returns no data.
+const existingColumns: Record<string, string[]> = {
+  user_profiles: [
+    'id',
+    'email',
+    'full_name',
+    'role',
+    'active',
+    'phone',
+    'organization',
+    'last_login',
+    'created_at',
+    'updated_at',
+    'default_vat_percentage',
+    'vat_label',
+    'bank_account_number',
+    'bank_account_holder',
+    'bank_name',
+    'swift_bic',
+    'bank_address',
+    'bank_account_currency',
+  ],
+}
+
+function missingColumns(table: string, selected: string | null): string[] {
+  const known = existingColumns[table]
+  if (!known || !selected || selected.trim() === '*') return []
+  return selected
+    .split(',')
+    .map((column) => column.trim())
+    .filter((column) => column && column !== '*' && !known.includes(column))
 }
 
 function rowsOf(table: string): Row[] {
@@ -109,6 +140,7 @@ function adminClient() {
       let limitN: number | null = null
       let orderCol: string | null = null
       let orderAsc = true
+      let selectedColumns: string | null = null
 
       const matching = () => {
         let list = rowsOf(table).filter((row) => filters.every((filter) => filter(row)))
@@ -152,6 +184,15 @@ function adminClient() {
       }
 
       const one = (allowEmpty: boolean) => {
+        if (action === 'select') {
+          const missing = missingColumns(table, selectedColumns)
+          if (missing.length > 0) {
+            return {
+              data: null,
+              error: { message: `column ${table}.${missing[0]} does not exist` },
+            }
+          }
+        }
         const data = action === 'select' ? (matching()[0] ?? null) : applyWrite()
         return { data, error: !data && !allowEmpty ? { message: 'not found' } : null }
       }
@@ -159,7 +200,10 @@ function adminClient() {
       const builder: Record<string, unknown> = {}
       const chain = () => builder
       Object.assign(builder, {
-        select: chain,
+        select: (columns?: string) => {
+          selectedColumns = columns ?? null
+          return builder
+        },
         eq: (column: string, value: unknown) => {
           filters.push((row) => row[column] === value)
           return builder
