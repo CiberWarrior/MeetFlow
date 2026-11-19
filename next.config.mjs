@@ -6,6 +6,10 @@ const withNextIntl = createNextIntlPlugin()
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Keep proforma TTF fonts in the serverless bundle
+  outputFileTracingIncludes: {
+    '/api/**/*': ['./assets/fonts/**/*'],
+  },
   // Optimizacije za production
   swcMinify: true,
   // Environment varijable koje trebaju biti dostupne u build procesu

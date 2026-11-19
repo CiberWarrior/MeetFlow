@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf'
+import { PDF_UNICODE_FONT, registerUnicodeFont } from '@/lib/pdf-unicode-font'
 
 export interface ProformaLineItem {
   description: string
@@ -69,20 +70,25 @@ function formatMoney(amount: number, currency: string): string {
   return `${amount.toFixed(2)} ${currency}`
 }
 
+function setPdfFont(doc: jsPDF, style: 'normal' | 'bold' = 'normal') {
+  doc.setFont(PDF_UNICODE_FONT, style)
+}
+
 export function generateProformaInvoicePdf(input: ProformaInvoiceInput): Buffer {
   const t = LABELS[input.locale]
   const doc = new jsPDF()
+  registerUnicodeFont(doc)
   const pageWidth = doc.internal.pageSize.getWidth()
   const margin = 20
   let y = margin
 
   doc.setFontSize(18)
-  doc.setFont('helvetica', 'bold')
+  setPdfFont(doc, 'bold')
   doc.text(t.title, margin, y)
   y += 10
 
   doc.setFontSize(10)
-  doc.setFont('helvetica', 'normal')
+  setPdfFont(doc, 'normal')
   doc.text(`${t.number}: ${input.registrationNumber}`, margin, y)
   y += 5
   doc.text(`${t.date}: ${formatDate(input.issueDate, input.locale)}`, margin, y)
@@ -94,10 +100,10 @@ export function generateProformaInvoicePdf(input: ProformaInvoiceInput): Buffer 
   doc.text(input.conferenceName, margin, y)
   y += 12
 
-  doc.setFont('helvetica', 'bold')
+  setPdfFont(doc, 'bold')
   doc.text(t.billTo, margin, y)
   y += 6
-  doc.setFont('helvetica', 'normal')
+  setPdfFont(doc, 'normal')
   doc.text(input.billToName, margin, y)
   y += 5
   if (input.billToEmail) {
@@ -115,14 +121,14 @@ export function generateProformaInvoicePdf(input: ProformaInvoiceInput): Buffer 
   }
   y += 6
 
-  doc.setFont('helvetica', 'bold')
+  setPdfFont(doc, 'bold')
   doc.text(t.description, margin, y)
   doc.text(t.amount, pageWidth - margin, y, { align: 'right' })
   y += 4
   doc.line(margin, y, pageWidth - margin, y)
   y += 6
 
-  doc.setFont('helvetica', 'normal')
+  setPdfFont(doc, 'normal')
   let total = 0
   for (const item of input.lineItems) {
     total += item.amount
@@ -135,24 +141,24 @@ export function generateProformaInvoicePdf(input: ProformaInvoiceInput): Buffer 
   y += 2
   doc.line(margin, y, pageWidth - margin, y)
   y += 6
-  doc.setFont('helvetica', 'bold')
+  setPdfFont(doc, 'bold')
   doc.text(t.total, pageWidth - margin - 45, y)
   doc.text(formatMoney(total, input.currency), pageWidth - margin, y, { align: 'right' })
   y += 10
 
   if (input.vatPercentage) {
-    doc.setFont('helvetica', 'normal')
+    setPdfFont(doc, 'normal')
     doc.setFontSize(9)
     doc.text(t.vatNote.replace('{vat}', String(input.vatPercentage)), margin, y)
     y += 8
   }
 
   doc.setFontSize(11)
-  doc.setFont('helvetica', 'bold')
+  setPdfFont(doc, 'bold')
   doc.text(t.paymentDetails, margin, y)
   y += 7
   doc.setFontSize(10)
-  doc.setFont('helvetica', 'normal')
+  setPdfFont(doc, 'normal')
   doc.text(`${t.recipient}: ${input.issuerName}`, margin, y)
   y += 5
   if (input.issuerAddress) {

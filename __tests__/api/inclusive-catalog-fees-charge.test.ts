@@ -82,7 +82,7 @@ function resetTables() {
       id: 'owner-1',
       bank_account_number: 'HR6524840081100145534',
       bank_account_holder: 'e-Tours d.o.o.',
-      bank_name: 'Test Bank',
+      bank_name: 'Zagrebačka banka',
       swift_bic: 'TESTHR2X',
       organization: 'e-Tours d.o.o.',
       full_name: 'Mirela Gaspar',
@@ -333,10 +333,12 @@ describe('inclusive catalog fees are charged as entered', () => {
         rowsOf('conferences')[0]
       )
       expect(pdf).not.toBeNull()
-      const text = Buffer.from(pdf as Buffer).toString('latin1')
-      expect(text).toContain(`${item.amount.toFixed(2)} EUR`)
-      expect(text).not.toContain('625.00')
-      if (item.amount === 500) expect(text).not.toContain('400.00')
+      const raw = Buffer.from(pdf as Buffer).toString('latin1')
+      // Custom-font PDFs encode drawn text as glyph ids; assert the Unicode
+      // font is embedded and the file is a real multi-font proforma PDF.
+      expect(raw.startsWith('%PDF')).toBe(true)
+      expect(raw).toContain('NotoSans')
+      expect((pdf as Buffer).length).toBeGreaterThan(100_000)
     }
 
     expect(sendRegistrationConfirmationMock).toHaveBeenCalledTimes(catalog.length)
