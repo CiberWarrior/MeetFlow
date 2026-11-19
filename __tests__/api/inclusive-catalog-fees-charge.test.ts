@@ -297,4 +297,146 @@ describe('inclusive catalog fees are charged as entered', () => {
 
     expect(sendRegistrationConfirmationMock).toHaveBeenCalledTimes(catalog.length)
   })
+
+  it('charges 500, 400 and 300 on 31 March 2027 and 600, 500 and 400 from 1 April 2027', async () => {
+    const periods = [
+      {
+        day: '2027-03-31T12:00:00.000Z',
+        validFrom: '2026-09-15',
+        validTo: '2027-03-31',
+        prices: [
+          { name: 'Participant', amount: 500 },
+          { name: 'Student', amount: 400 },
+          { name: 'Accompanying person', amount: 300 },
+        ],
+      },
+      {
+        day: '2027-04-01T12:00:00.000Z',
+        validFrom: '2027-04-01',
+        validTo: '2027-07-23',
+        prices: [
+          { name: 'Participant', amount: 600 },
+          { name: 'Student', amount: 500 },
+          { name: 'Accompanying person', amount: 400 },
+        ],
+      },
+    ] as const
+
+    let order = 0
+    for (const period of periods) {
+      for (const price of period.prices) {
+        const response = await createFee(
+          new NextRequest(`http://localhost/api/admin/conferences/${conferenceId}/registration-fees`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: price.name,
+              valid_from: period.validFrom,
+              valid_to: period.validTo,
+              is_active: true,
+              price_gross: price.amount,
+              prices_include_vat: true,
+              vat_percentage: VAT,
+              capacity: null,
+              currency: 'EUR',
+              display_order: order,
+            }),
+          }),
+          { params: { id: conferenceId } }
+        )
+        order += 1
+        expect(response.status).toBe(200)
+      }
+    }
+
+    jest.useFakeTimers({
+      doNotFake: [
+        'nextTick',
+        'queueMicrotask',
+        'setImmediate',
+        'clearImmediate',
+        'setInterval',
+        'clearInterval',
+        'setTimeout',
+        'clearTimeout',
+      ],
+    })
+
+    try {
+      for (const period of periods) {
+        jest.setSystemTime(new Date(period.day))
+        const options = await getAvailableFeesForForm(createAdminClient(), conferenceId)
+        const available = options.filter((option) => option.is_available)
+        expect(available.map((option) => [option.name, option.price_gross])).toEqual(
+          period.prices.map((price) => [price.name, price.amount])
+        )
+
+        const other = periods.find((candidate) => candidate.day !== period.day)
+        for (const price of other?.prices ?? []) {
+          const closed = options.find(
+            (option) =>
+              option.name === price.name &&
+              option.price_gross === price.amount &&
+              !option.is_available
+          )
+          expect(closed).toBeDefined()
+          const rejected = await register(
+            new NextRequest('http://localhost/api/register', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                conference_id: conferenceId,
+                registration_fee_id: closed?.id,
+                participants: [
+                  {
+                    customFields: {
+                      email: `closed-${price.amount}-${period.validTo}@example.com`,
+                      first_name: 'Ada',
+                      last_name: 'Lovelace',
+                    },
+                  },
+                ],
+              }),
+            })
+          )
+          expect(rejected.status).toBe(400)
+        }
+
+        for (const price of period.prices) {
+          const fee = available.find(
+            (option) => option.name === price.name && option.price_gross === price.amount
+          )
+          const response = await register(
+            new NextRequest('http://localhost/api/register', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                conference_id: conferenceId,
+                registration_fee_id: fee?.id,
+                participants: [
+                  {
+                    customFields: {
+                      email: `${price.name.toLowerCase().replace(/\s+/g, '.')}.${period.validTo}@example.com`,
+                      first_name: 'Ada',
+                      last_name: 'Lovelace',
+                    },
+                  },
+                ],
+              }),
+            })
+          )
+          expect(response.status).toBe(201)
+          const registrationBody = await response.json()
+          expect(registrationBody.bank_instructions).toMatchObject({
+            amount: price.amount,
+            currency: 'EUR',
+          })
+          const summary = sendRegistrationConfirmationMock.mock.calls.at(-1)?.[6] as string
+          expect(summary).toContain(`Amount: ${price.amount.toFixed(2)} EUR`)
+        }
+      }
+    } finally {
+      jest.useRealTimers()
+    }
+  })
 })

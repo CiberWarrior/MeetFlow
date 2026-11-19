@@ -14,7 +14,7 @@ Kartica nije uvjet. Pilot ostaje na virmanu.
 
 | Odgovor | Već postoji | Što nedostaje | Posao |
 | --- | --- | --- | --- |
-| Naziv i datum: IST 2027, 19.–23. 7. 2027., Sheraton Zagreb | Naziv, slug, datumi, mjesto i dvorana | Na stranici je i rana prijava do 31. 3. 2027. Upitnik ima jednu cijenu po kategoriji, bez rane i kasne | Postava datuma i mjesta. Druga cijena za rani rok traži njihovu odluku |
+| Naziv i datum: IST 2027, 19.–23. 7. 2027., Sheraton Zagreb. Do 31. 3. 2027. cijene su 500, 400 i 300 eura. Od 1. 4. 2027. cijene su 600, 500 i 400 eura | Naziv, slug, datumi, mjesto i dvorana. Šest kotizacija s datumom od–do, isto kao u tablici 2 | Ništa za same iznose i rokove. Postotak PDV-a i dalje nije dan | Postava datuma, mjesta i šest kotizacija |
 | Prijave su otvorene od 15. 9. 2026. na njihovoj stranici | MeetFlow ima vlastitu formu `/conferences/[slug]/register` | Stare prijave se same ne prebacuju | Nova forma: postava. Uvoz već pristiglih prijava: srednje |
 | Oko 50 sudionika | Kapacitet se može staviti na kotizaciju | Nema zasebnog „očekujemo 50” osim tog kapaciteta | Postava |
 | Uživo | Mjesto i dvorana postoje. Nema obveznog online prijenosa | Ništa za hibrid, jer ga ne traže | Postava |
@@ -72,9 +72,9 @@ Dio detalja ne treba zaključati sada. Renata je 19. 11. 2026. rekla da će se s
 
 Konferencija s ovim cijenama nije stvorena. `.env.local` pokazuje na udaljeni Supabase, a lokalni portovi 54321 i 54322 su zatvoreni. Upis bi bio u toj udaljenoj bazi. SQL i Supabase naredbe nisu pokretane. Produkcija nije mijenjana.
 
-Lokalno, 19. 11. 2026.: Jest 24 skupa, 165 prolaza, 0 padova. Lint je prošao bez ESLint upozorenja. Build je prošao (Next.js 14.2.33). Ostala su već poznata upozorenja: Edge `process.versions` iz Supabasea, velik webpack niz, te zastarjeli podaci za preglednike. Produkcija nije dirana.
+Lokalno, 19. 11. 2026.: Jest 24 skupa, 166 prolaza, 0 padova. Lint je prošao bez ESLint upozorenja. Build je prošao (Next.js 14.2.33). Ostala su već poznata upozorenja: Edge `process.versions` iz Supabasea, velik webpack niz, te zastarjeli podaci za preglednike. Produkcija nije dirana ovim prolazom osim pusha na GitHub.
 
-Dva nova testa drže cijene 500, 400 i 300 eura. `__tests__/registration/inclusive-catalog-fees.test.tsx` prolazi kroz obrazac kotizacije i javnu formu. `__tests__/api/inclusive-catalog-fees-charge.test.ts` prolazi kroz spremanje, naplatu, predračun i tekst potvrde. Oba su na lažnoj bazi u memoriji. Stopa u testu je 25%, da se vidi da se PDV ne dodaje na upisani iznos. Pravi e-mail nije poslan. Konferencija nije stvorena.
+Dva testa drže cijene 500, 400 i 300 eura na formi, predračunu i u potvrdi. Treći test drži datum: prijava 31. 3. 2027. plaća 500, 400 i 300 eura, a od 1. 4. 2027. plaća 600, 500 i 400 eura. Kasnija cijena toga dana nije naplativa, i obrnuto. Sve je na lažnoj bazi u memoriji. Pravi e-mail nije poslan. Konferencija nije stvorena.
 
 ## Kasnije, po konferenciji
 
