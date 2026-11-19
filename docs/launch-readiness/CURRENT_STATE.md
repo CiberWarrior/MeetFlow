@@ -1,6 +1,6 @@
 # MeetFlow — trenutno stanje
 
-Datum: 7. studenog 2026. Analiza je samo čitanje. Produkcijski dashboardi nisu otvarani.
+Datum: 7. studenog 2026. Analiza ispod tog datuma je samo čitanje. Produkcijski dashboardi nisu otvarani. Lokalna provjera testova, linta i builda od 19. studenog 2026. je na kraju dokumenta.
 
 Oznake: VERIFIED IN CODE, VERIFIED BY EXECUTED TEST, DOCUMENTED ONLY, UNKNOWN, NOT APPLICABLE.
 
@@ -79,6 +79,14 @@ Sedam commitova koji su ranije bili samo lokalni (`068e433` do `9f00274`) sad su
 
 Nije commitano: izmjene u `docs/00_ACTIVE/MEETFLOW_PREGLED_2026-11-07.md` i `docs/AI_HANDOFF.md`, plus `supabase/.temp/`. Te izmjene bilježe prijavu da je migracija `066` prošla. `supabase/.temp/` ne ide u commit.
 
+Dopuna 19. 11. 2026., lokalni `git status` bez fetcha, neposredno prije commita koji ovaj popis šalje na GitHub:
+
+- `HEAD`: `c677884`, 2026-11-07 13:12:21 +0100, `docs: record the launch audit and local agent skill setup`
+- lokalna referenca `origin/main`: `ff324ab`
+- `main` je jedan commit ispred `origin/main`
+- nespremljeno: dva dashboard testa, `docs/AI_HANDOFF.md`, `docs/00_ACTIVE/MEETFLOW_PREGLED_2026-11-07.md`, `docs/launch-readiness/CURRENT_STATE.md`, `30_DAY_LAUNCH_PLAN.md`, `EXECUTIVE_SUMMARY.md`, `LAUNCH_BACKLOG.md`, `RISK_REGISTER.md`
+- nepraćeno: `docs/launch-readiness/TEST_REZULTATI_2026-11-19.md` i `.cursor/rules/wrong-workspace.mdc`
+
 ## Baza i deploy
 
 `supabase/config.toml` ima `id = "your-project-id"` i Postgres 15. VERIFIED IN CODE. CLI nije dokazano povezan. DOCUMENTED ONLY u handoffu.
@@ -96,3 +104,32 @@ Produkcijski URL iz dokumentacije: https://meetflow-conference.vercel.app. Je li
 ## Što ova analiza nije radila
 
 Nisu pokretani testovi, lint, build, e-mail, webhook, SQL ni deploy. `.env` datoteke nisu otvarane. Preglednik nije korišten.
+
+## Lokalna provjera — 19. 11. 2026.
+
+Ponovljeno isti dan, nakon prvog prolaza. Produkcija, SQL i Supabase CLI nisu dirani. Mreža je bila ograničena na dopuštene adrese alata. Prije naredbi postavljene su lažne vrijednosti za svih osam imena iz `.env.local`. `@next/env` ne prepisuje ime koje je već postavljeno, pa te vrijednosti ostaju i kad Next ispiše `Environments: .env.local`. Vrijednosti nisu ispisane. Node `v24.15.0`, npm `11.12.1`. Kratki sažetak: `docs/launch-readiness/TEST_REZULTATI_2026-11-19.md`.
+
+| Naredba | Ishod | Oznaka |
+| --- | --- | --- |
+| `npm test -- --runInBand --watchman=false --ci` | izlaz 0 nakon popravka mocka; 22 suiteova prošlo; 163 testova prošlo, 0 palo; 1,95 s | VERIFIED BY EXECUTED TEST |
+| `npm run lint` | izlaz 0 nakon popravka mocka; ESLint: `No ESLint warnings or errors` | VERIFIED BY EXECUTED TEST |
+| `npm run build` | izlaz 0 nakon popravka mocka; Next.js 14.2.33; `Compiled successfully`; sve navedene rute su dinamičke (`ƒ`) | VERIFIED BY EXECUTED TEST |
+
+### Testovi admin nadzorne ploče
+
+Prije popravka četiri testa padala su jer `DashboardPageContent` u `app/admin/dashboard/page.tsx` (redak 157) zove `useSearchParams()`, a mock `next/navigation` je imao samo `useRouter`.
+
+Popravak je u testovima, ne u stranici:
+
+- `__tests__/admin/super-admin-dashboard.test.tsx` sada vraća `view=platform`, jer se pregled platforme crta samo tada. Očekivani natpis kartice je `Conference Turnover` (`t('conferenceTurnover')`), umjesto starog `totalRevenue`.
+- `__tests__/admin/conference-manager-dashboard.test.tsx` vraća prazan `view`, pa pregled platforme ostaje skriven.
+
+Ponovljeni cijeli Jest: 163 prolaza, 0 padova. Conference-manager suite i dalje ispisuje `act(...)` upozorenja za kasna ažuriranja stanja. To nisu padovi.
+
+### Lint i build
+
+ESLint grešaka i upozorenja nema. Build nema grešku kompajlera ni tipova: `Compiled successfully`, zatim `Linting and checking validity of types`, pa 33 generiranih statičkih stranica. Tablica aplikacijskih ruta je cijela dinamička, pa ovaj build nije čitao podatke konferencije.
+
+Na lintu i buildu npm ispisuje `Unknown env config "devdir"`. To nije pravilo ESLint-a ni greška Nexta. Ključ dolazi iz okoline alata (sandbox predmemorija za `node-gyp`), ne iz `package.json`. Prijedlog: u repozitoriju ništa ne mijenjati. Ako se ista poruka pojavi u običnom terminalu, ukloniti `devdir` iz korisničkog `.npmrc`.
+
+Raniji build isti dan, s praznijom predmemorijom, uz izlaz 0 ispisao je i ova upozorenja: Edge API u `@supabase/realtime-js` i `@supabase/supabase-js` preko `@supabase/ssr`, webpack serializacija stringa od 128 kiB, te zastarjeli `baseline-browser-mapping` i `caniuse-lite`. Ovaj ponovljeni zapis ih ne ponavlja. Nisu padovi. Ako se Edge upozorenje vrati, čistiji zapis traži odvajanje tog klijenta od Edge paketa ili noviju inačicu knjižnice. Nije rađeno.

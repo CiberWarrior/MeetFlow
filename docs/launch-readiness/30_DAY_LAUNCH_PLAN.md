@@ -69,4 +69,4 @@ Ako bilo koji uvjet fali, tjedan 4 ostaje na sintetičkim podacima.
 
 ## Što ovaj plan ne radi
 
-Ne popravlja dashboard testove, ne uvodi Sentry, ne spaja povijest migracija i ne uključuje karticu. To su zasebni zadaci nakon pilota ili uz posebnu reviziju.
+Dashboard testovi su lokalno popravljeni 19. 11. Plan i dalje ne uvodi Sentry, ne spaja povijest migracija i ne uključuje karticu. To ostaju zasebni zadaci nakon pilota ili uz posebnu reviziju.

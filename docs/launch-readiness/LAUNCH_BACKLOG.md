@@ -120,13 +120,11 @@ Acceptance: u dogovoru s agencijom piše da prva konferencija nema karticu, ili 
 
 ### Dashboard testovi
 
-Problem: 6. 11. četiri testa padaju jer mock ima `useRouter`, a stranica zove `useSearchParams` (`app/admin/dashboard/page.tsx` 157 prema handoffu).
+Problem: mock je imao samo `useRouter`, a `app/admin/dashboard/page.tsx` zove `useSearchParams`.
 
-Prioritet: P2. Složenost: S. Dokaz: DOCUMENTED ONLY. Danas nije ponovno pokretano.
+Prioritet: P2. Složenost: S.
 
-Acceptance: ta četiri testa prolaze bez promjene produkcijskog ponašanja. Status: otvoreno, ne blokira pilot.
-
-Ovisi o: posebnom odobrenju da se testovi pokrenu u izolaciji. `.env.local` pokazuje na udaljeni Supabase. DOCUMENTED ONLY. Zato se Jest ne pokreće usput.
+Acceptance: ta četiri testa prolaze bez promjene produkcijskog ponašanja. Status: zatvoreno 19. 11. 2026. VERIFIED BY EXECUTED TEST: 163 prolaza, 0 padova. Super-admin mock vraća `view=platform`. Conference-admin mock vraća prazan `view`. Stranica nije mijenjana.
 
 ## Redoslijed
 

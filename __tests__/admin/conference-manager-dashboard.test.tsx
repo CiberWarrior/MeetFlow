@@ -17,6 +17,7 @@ jest.mock('next-intl', () => ({
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+  useSearchParams: () => ({ get: () => null }),
 }))
 
 const mockFrom = jest.fn()

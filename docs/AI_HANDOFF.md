@@ -2,9 +2,11 @@
 
 Snapshot: 2026-11-07 (Europe/Zagreb).
 Repository: `/Users/renchi/Documents/Cursor/MeetFlow`.
-Latest update: launch-readiness drafts in `docs/launch-readiness/`. No production connection, SQL, migration command, application code change, or deployment was made in this documentation update. The user-reported manual run of migration `066` remains as recorded below.
+Latest update: 2026-11-19. Jest, lint, and build ran locally with dummy environment values. No production connection, SQL, Supabase command, or deployment. The dashboard mocks now provide `useSearchParams`. Jest: 163 passed, 0 failed, 22 suites, exit 0. `npm run lint` and `npm run build` then exited 0 (`Compiled successfully`, Next.js 14.2.33). The 2026-11-06 result of 4 failed dashboard tests stays below as history and is no longer current.
 
-The 2026-11-06 sections below stay as the earlier close-out. Where they disagree with this note, this note wins.
+Local git, without a fetch, immediately before the commit that publishes this note: `HEAD` is `c677884` (`docs: record the launch audit and local agent skill setup`, 2026-11-07 13:12:21 +0100), one commit ahead of `origin/main` at `ff324ab`. Uncommitted: the two dashboard test files, `docs/AI_HANDOFF.md`, `docs/00_ACTIVE/MEETFLOW_PREGLED_2026-11-07.md`, and the launch-readiness files `CURRENT_STATE.md`, `30_DAY_LAUNCH_PLAN.md`, `EXECUTIVE_SUMMARY.md`, `LAUNCH_BACKLOG.md`, and `RISK_REGISTER.md`. Untracked: `docs/launch-readiness/TEST_REZULTATI_2026-11-19.md` and `.cursor/rules/wrong-workspace.mdc`.
+
+The 2026-11-07 sections below stay as the earlier close-out. Where they disagree with this note, this note wins. The user-reported manual run of migration `066` remains as recorded below.
 
 **User-reported, 2026-11-07.** Renata ran `supabase/migrations/066_drop_public_insert_contact_inquiries.sql` in the Supabase SQL Editor and reported that the query succeeded. This session did not query production to list policies. Do not run that SQL again. It drops `Anyone can insert contact inquiries` on `public.contact_inquiries` without `IF EXISTS`.
 
@@ -98,4 +100,4 @@ This pass also predates the close-out. Migration `065` now exists and is committ
 
 ## Exactly one recommended next task
 
-On production, send one contact-form message with an international phone number and confirm it still arrives. When the next organizer is invited, confirm the email contains a single-use activation link and does not contain a password. If a test registration is available, upload one allowed attachment and confirm it is stored. Use `docs/launch-readiness/` as the scope and risk record. Do not run `supabase db push`, `supabase migration repair`, or insert migration-history rows. The migration baseline remains blocked until a later, explicitly approved pass. Security Fix 01, Security Fix 02, and the user-reported `066` drop stay closed.
+On production, send one contact-form message with an international phone number and confirm it still arrives. When the next organizer is invited, confirm the email contains a single-use activation link and does not contain a password. If a test registration is available, upload one allowed attachment and confirm it is stored. The dashboard mock failure is closed locally and is not this task. Use `docs/launch-readiness/` as the scope and risk record. Do not run `supabase db push`, `supabase migration repair`, or insert migration-history rows. The migration baseline remains blocked until a later, explicitly approved pass. Security Fix 01, Security Fix 02, and the user-reported `066` drop stay closed.

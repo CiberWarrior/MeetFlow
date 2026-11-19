@@ -18,7 +18,7 @@ jest.mock('next-intl', () => ({
       activeConferences: 'Active Conferences',
       totalUsers: 'Total Users',
       totalRegistrations: 'Total Registrations',
-      totalRevenue: 'Total Revenue',
+      conferenceTurnover: 'Conference Turnover',
       quickActions: 'Quick Actions',
       welcomeBack: 'Welcome back, {name}',
     }
@@ -30,6 +30,9 @@ jest.mock('next-intl', () => ({
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+  useSearchParams: () => ({
+    get: (key: string) => (key === 'view' ? 'platform' : null),
+  }),
 }))
 
 const mockFrom = jest.fn()
@@ -125,6 +128,6 @@ describe('Super Admin Dashboard', () => {
     expect(await findByText('Active Conferences')).toBeInTheDocument()
     expect(await findByText('Total Users')).toBeInTheDocument()
     expect(await findByText('Total Registrations')).toBeInTheDocument()
-    expect(await findByText('Total Revenue')).toBeInTheDocument()
+    expect(await findByText('Conference Turnover')).toBeInTheDocument()
   })
 })

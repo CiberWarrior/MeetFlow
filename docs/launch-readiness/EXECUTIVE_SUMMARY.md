@@ -33,7 +33,7 @@ U kodu postoje registracija, virman, sažetak, recenzija preko tokena, program, 
 2. Nova registracija ne može platiti karticom. VERIFIED IN CODE: `app/api/register/route.ts` odbija `pay_now_card`.
 3. IBAN za uplatu čita se iz profila vlasnika konferencije, ne iz zasebnog računa agencije. VERIFIED IN CODE.
 4. Javni upload logotipa još je u migraciji `011` i nijedna kasnija datoteka tu politiku ne briše. Produkcija: UNKNOWN.
-5. Nema CI-a. Sentry nije ovisnost. Zadnji poznati pad dashboard testova nije ponovno pokrenut.
+5. Nema CI-a. Sentry nije ovisnost. Dashboard testovi su 19. 11. lokalno prošli: 163 prolaza, 0 padova.
 
 ## Sljedeći najmanji korak
 

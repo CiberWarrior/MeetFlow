@@ -1,0 +1,12 @@
+---
+description: Upozori Renatu ako je chat otvoren u drugom projektu od onog o kojem govori
+alwaysApply: true
+---
+
+# Krivi projekt
+
+Prije izmjene, commita ili prijenosa na server usporedi otvoreni workspace s projektom iz poruke.
+
+Ako se ne poklapaju, prva rečenica odgovora mora to reći. Navedi oba naziva: koji je prozor otvoren i koji projekt poruka zapravo traži. Pitaj želi li nastaviti u drugoj mapi ili prebaciti Cursor na pravi projekt. Ne nastavljaj šutke samo zato što je raniji korak u tom chatu već dirao drugu mapu.
+
+Primjer: workspace je MeetFlow, a poruka je o Botaničkom vrtu ili botanickivrt.biol.pmf.hr.

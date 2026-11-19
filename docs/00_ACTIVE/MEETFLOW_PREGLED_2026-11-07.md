@@ -120,7 +120,8 @@ Pregled i indeks dokumentacije su na `origin/main` u commitu `ff324ab`. Nepraće
 - **Migracija `066`** je, prema Renatinoj prijavi 7. 11. 2026., uspješno izvršena u SQL Editoru. Popis politika nakon toga nije ponovno čitan.
 - **Deploy** commita `9f00274` Vercel je označio kao dovršen. To ne dokazuje ručni prolaz kroz registraciju, aktivaciju organizatora ni kontakt formu.
 - **Backup** je prijavljen, ali obnova nije testirana.
-- Prije pusha, 7. 11., prošlo je 12 testnih datoteka vezanih uz ove commitove: 58 testova, svi prolaze. Stariji dashboard testovi iz handoffa (6. 11.: 4 pala zbog mocka `useSearchParams`) nisu ponovno pokretani.
+- Prije pusha, 7. 11., prošlo je 12 testnih datoteka vezanih uz ove commitove: 58 testova, svi prolaze. Stariji dashboard testovi iz handoffa (6. 11.: 4 pala zbog mocka `useSearchParams`) tada nisu ponovno pokretani.
+- 19. 11. 2026. ta četiri testa su popravljena u mocku. Cijeli Jest: 163 prolaza, 0 padova. VERIFIED BY EXECUTED TEST. Stranica nadzorne ploče nije mijenjana. Lint i build nakon toga imaju izlaz 0.
 
 ## Kako ovo čitati kao stanje projekta
 
