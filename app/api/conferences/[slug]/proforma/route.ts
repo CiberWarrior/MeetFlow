@@ -24,13 +24,14 @@ export async function GET(
     if (!row?.registration) throw ApiError.notFound('Invalid or expired link')
 
     const supabase = createAdminClient()
+    // Load by conference_id (same as /api/register) so settings match the registration path.
     const { data: conference } = await supabase
       .from('conferences')
       .select('id, name, slug, settings, pricing, owner_id')
-      .eq('slug', slug)
+      .eq('id', row.registration.conference_id)
       .single()
 
-    if (!conference || conference.id !== row.registration.conference_id) {
+    if (!conference || conference.slug !== slug) {
       throw ApiError.notFound('Registration not found for this conference')
     }
 
@@ -73,7 +74,8 @@ export async function GET(
       conferenceForPdf.settings && typeof conferenceForPdf.settings === 'object'
         ? (conferenceForPdf.settings as Record<string, any>)
         : {}
-    const fromSettings = !!settingsObj.payment_settings?.bank_details?.iban
+    const settingsIban = settingsObj.payment_settings?.bank_details?.iban
+    const fromSettings = typeof settingsIban === 'string' && !!settingsIban.trim()
 
     return new NextResponse(new Uint8Array(pdf), {
       headers: {
@@ -82,6 +84,9 @@ export async function GET(
         // Temporary pilot diagnostics (no full IBAN): confirm which bank source was used.
         'X-Bank-Source': fromSettings ? 'conference' : 'profile',
         'X-Bank-Iban-Last4': bank.iban.slice(-4),
+        'X-Settings-Type': typeof conferenceForPdf.settings,
+        'X-Has-Payment-Settings': settingsObj.payment_settings ? '1' : '0',
+        'X-Has-Bank-Details': settingsObj.payment_settings?.bank_details ? '1' : '0',
       },
     })
   } catch (error) {
