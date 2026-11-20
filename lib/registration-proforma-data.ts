@@ -4,6 +4,7 @@ import {
   type ConferenceBankDetails,
 } from '@/lib/conference-bank-details'
 import { extractRegistrationContact } from '@/lib/registration-contact'
+import { resolveBankTransferReference } from '@/lib/payment-reference'
 import {
   generateProformaInvoicePdf,
   type ProformaInvoiceInput,
@@ -90,10 +91,17 @@ export async function buildProformaPdfForRegistration(
   const dueDate = new Date(issueDate)
   dueDate.setDate(dueDate.getDate() + deadlineDays)
 
+  const registrationMark =
+    registration.registration_number || registration.id.slice(0, 8).toUpperCase()
+  const transferRef = resolveBankTransferReference({
+    paymentReference: registration.payment_reference,
+    registrationNumber: registrationMark,
+  })
+
   const input: ProformaInvoiceInput = {
     locale,
     conferenceName: conference.name,
-    registrationNumber: registration.registration_number || registration.id.slice(0, 8).toUpperCase(),
+    registrationNumber: registrationMark,
     issueDate,
     dueDate,
     billToName,
@@ -106,7 +114,9 @@ export async function buildProformaPdfForRegistration(
     bankName: bank.bank_name,
     swiftBic: bank.swift_bic,
     currency: registration.payment_currency || 'EUR',
-    paymentReference: registration.payment_reference || null,
+    paymentModel: transferRef.model,
+    paymentReference: transferRef.reference,
+    paymentDescription: transferRef.description,
     lineItems,
     vatPercentage: pricing.vat_percentage ?? null,
   }

@@ -2,11 +2,11 @@
 
 Snapshot: 2026-11-20 (Europe/Zagreb).
 Repository: `/Users/renchi/Documents/Cursor/MeetFlow`.
-`HEAD` / `origin/main`: `8286bf8` (`fix(proforma): embed Noto Sans so Croatian characters render`).
+See `docs/pilot/TEST_KONFERENCIJA.md` → **Priprema za klijentsko testiranje**.
 
-**IST 2027 pilot status (full report):** `docs/pilot/TEST_KONFERENCIJA.md` → section **Stanje pilota — 20. 11. 2026.** Draft conference `ist-2027` exists in production; fees and proforma amounts verified at 500 EUR; confirmation email blocked pending `RESEND_API_KEY` in Supabase Edge Function secrets (Resend MFA login blocked for Renata). Do not run SQL or Supabase CLI; do not change Vercel env without approval.
+**IST 2027:** draft `ist-2027`, code `IST2027`, e-Tours bank details, fees/fields/reply-to ready. Bank transfer proforma uses model **HR00**, numeric poziv, registration mark in payment description. `NEXT_PUBLIC_APP_URL` is set. Email still blocked on Resend MFA / `RESEND_API_KEY`. Do not run SQL or Supabase CLI.
 
-**Recommended next task:** After Renata obtains a Resend API key, add `RESEND_API_KEY` to Supabase Edge Function secrets for `send-confirmation-email`, then run one registration to a real inbox (temporarily publish IST 2027, then revert to draft). Optionally, with approval, set `NEXT_PUBLIC_APP_URL` to `https://meetflow-conference.vercel.app`.
+**Recommended next task:** Delete leftover synthetic registrations in Admin → Registrations (if any). Commit/push HR00 work and redeploy. Then client test (publish briefly); add Resend key when MFA is unblocked.
 
 Earlier snapshot below (2026-11-07 / 2026-11-19). Where it disagrees with the paragraph above or with `docs/pilot/TEST_KONFERENCIJA.md`, those win.
 

@@ -22,7 +22,9 @@ const bankInstructions = {
   swift_bic: 'TESTHR2X',
   amount: 0,
   currency: 'EUR',
-  reference: 'ICD11-006',
+  model: 'HR00',
+  reference: '006',
+  description: 'ICD11-006',
 }
 
 function renderStatus(copy: Record<string, string>, status: 'sent' | 'failed' | 'unknown') {

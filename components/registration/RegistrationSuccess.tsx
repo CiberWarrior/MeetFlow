@@ -10,7 +10,9 @@ export interface BankInstructions {
   swift_bic: string | null
   amount: number
   currency: string
+  model?: string | null
   reference: string | null
+  description?: string | null
 }
 
 export type ConfirmationEmailStatus = 'sent' | 'failed' | 'unknown'
@@ -115,10 +117,22 @@ export default function RegistrationSuccess({
                 {bankInstructions.amount.toFixed(2)} {bankInstructions.currency}
               </dd>
             </div>
+            {bankInstructions.model && (
+              <div className="flex justify-between gap-4 p-2 bg-white rounded-lg border border-blue-100">
+                <dt className="text-gray-600">{t('bankModel')}</dt>
+                <dd className="font-mono font-medium text-gray-900 text-right">{bankInstructions.model}</dd>
+              </div>
+            )}
             {bankInstructions.reference && (
               <div className="flex justify-between gap-4 p-2 bg-white rounded-lg border border-blue-100">
                 <dt className="text-gray-600">{t('bankReference')}</dt>
                 <dd className="font-mono font-medium text-gray-900 text-right">{bankInstructions.reference}</dd>
+              </div>
+            )}
+            {bankInstructions.description && (
+              <div className="flex justify-between gap-4 p-2 bg-white rounded-lg border border-blue-100">
+                <dt className="text-gray-600">{t('bankPaymentDescription')}</dt>
+                <dd className="font-medium text-gray-900 text-right">{bankInstructions.description}</dd>
               </div>
             )}
           </dl>

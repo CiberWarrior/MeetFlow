@@ -22,7 +22,9 @@ export interface ProformaInvoiceInput {
   bankName?: string | null
   swiftBic?: string | null
   currency: string
+  paymentModel?: string | null
   paymentReference?: string | null
+  paymentDescription?: string | null
   lineItems: ProformaLineItem[]
   vatPercentage?: number | null
 }
@@ -40,7 +42,9 @@ const LABELS = {
     total: 'Total',
     paymentDetails: 'Payment instructions',
     recipient: 'Recipient',
+    model: 'Model',
     reference: 'Payment reference',
+    paymentDescription: 'Payment description',
     vatNote: 'Prices include VAT ({vat}%)',
     footer: 'Please quote the payment reference when transferring.',
   },
@@ -56,9 +60,11 @@ const LABELS = {
     total: 'Ukupno',
     paymentDetails: 'Podaci za uplatu',
     recipient: 'Primatelj',
+    model: 'Model',
     reference: 'Poziv na broj',
+    paymentDescription: 'Opis plaćanja',
     vatNote: 'Cijene uključuju PDV ({vat}%)',
-    footer: 'Pri uplati navedite poziv na broj.',
+    footer: 'Pri uplati navedite model i poziv na broj.',
   },
 } as const
 
@@ -176,8 +182,16 @@ export function generateProformaInvoicePdf(input: ProformaInvoiceInput): Buffer 
     doc.text(`SWIFT/BIC: ${input.swiftBic}`, margin, y)
     y += 5
   }
+  if (input.paymentModel) {
+    doc.text(`${t.model}: ${input.paymentModel}`, margin, y)
+    y += 5
+  }
   if (input.paymentReference) {
     doc.text(`${t.reference}: ${input.paymentReference}`, margin, y)
+    y += 5
+  }
+  if (input.paymentDescription) {
+    doc.text(`${t.paymentDescription}: ${input.paymentDescription}`, margin, y)
     y += 5
   }
   doc.text(`${t.amount}: ${formatMoney(total, input.currency)}`, margin, y)
