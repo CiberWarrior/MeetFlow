@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { resolveConferenceBankDetails } from '@/lib/conference-bank-details'
 import { extractRegistrationContact } from '@/lib/registration-contact'
 import {
   generateProformaInvoicePdf,
@@ -24,35 +25,8 @@ export async function buildProformaPdfForRegistration(
   const paymentSettings = settings.payment_settings || {}
   const deadlineDays = Number(paymentSettings.bank_transfer_deadline_days || 7)
 
-  let issuerName = conference.name
-  let iban = ''
-  let bankName: string | null = null
-  let swiftBic: string | null = null
-  // user_profiles has no address columns yet, so the issuer address stays empty.
-  const issuerAddress: string | null = null
-
-  if (conference.owner_id) {
-    const { data: ownerProfile } = await supabase
-      .from('user_profiles')
-      .select(
-        'bank_account_number, bank_account_holder, bank_name, swift_bic, organization, full_name'
-      )
-      .eq('id', conference.owner_id)
-      .maybeSingle()
-
-    if (ownerProfile?.bank_account_number) {
-      iban = ownerProfile.bank_account_number
-      issuerName =
-        ownerProfile.bank_account_holder ||
-        ownerProfile.organization ||
-        ownerProfile.full_name ||
-        conference.name
-      bankName = ownerProfile.bank_name || null
-      swiftBic = ownerProfile.swift_bic || null
-    }
-  }
-
-  if (!iban) return null
+  const bank = await resolveConferenceBankDetails(supabase, conference)
+  if (!bank) return null
 
   const lineItems: ProformaInvoiceInput['lineItems'] = []
 
@@ -120,11 +94,11 @@ export async function buildProformaPdfForRegistration(
     billToEmail: contact.email || registration.email || null,
     billToVat,
     billToAddress,
-    issuerName,
-    issuerAddress,
-    iban,
-    bankName,
-    swiftBic,
+    issuerName: bank.account_holder || conference.name,
+    issuerAddress: bank.address,
+    iban: bank.iban,
+    bankName: bank.bank_name,
+    swiftBic: bank.swift_bic,
     currency: registration.payment_currency || 'EUR',
     paymentReference: registration.payment_reference || null,
     lineItems,

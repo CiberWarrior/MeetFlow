@@ -67,7 +67,13 @@ export async function PATCH(
       active,
       password,
       conference_ids,
-      permissions
+      permissions,
+      bank_account_number,
+      bank_account_holder,
+      bank_name,
+      swift_bic,
+      bank_address,
+      bank_account_currency,
     } = body
 
     log.info('Updating user', {
@@ -85,8 +91,32 @@ export async function PATCH(
     if (phone !== undefined) profileUpdates.phone = phone
     if (organization !== undefined) profileUpdates.organization = organization
     if (active !== undefined) profileUpdates.active = active
+    if (bank_account_number !== undefined) {
+      profileUpdates.bank_account_number = bank_account_number || null
+    }
+    if (bank_account_holder !== undefined) {
+      profileUpdates.bank_account_holder = bank_account_holder || null
+    }
+    if (bank_name !== undefined) profileUpdates.bank_name = bank_name || null
+    if (swift_bic !== undefined) profileUpdates.swift_bic = swift_bic || null
+    if (bank_address !== undefined) profileUpdates.bank_address = bank_address || null
+    if (bank_account_currency !== undefined) {
+      profileUpdates.bank_account_currency = bank_account_currency || 'EUR'
+    }
 
-    const { error: updateProfileError } = await supabase
+    // Bank fields and profile updates go through the service-role client so
+    // organizer IBAN changes are visible to proforma/register (admin client).
+    const writer =
+      bank_account_number !== undefined ||
+      bank_account_holder !== undefined ||
+      bank_name !== undefined ||
+      swift_bic !== undefined ||
+      bank_address !== undefined ||
+      bank_account_currency !== undefined
+        ? createAdminClient()
+        : supabase
+
+    const { error: updateProfileError } = await writer
       .from('user_profiles')
       .update(profileUpdates)
       .eq('id', id)

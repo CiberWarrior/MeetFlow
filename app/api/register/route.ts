@@ -18,6 +18,7 @@ import {
   selectRegistrationFee,
 } from '@/lib/custom-registration-fees'
 import { extractParticipantNames } from '@/lib/registration-contact'
+import { resolveConferenceBankDetails } from '@/lib/conference-bank-details'
 import type { EmailDeliveryStatus } from '@/lib/email'
 
 export const dynamic = 'force-dynamic'
@@ -484,32 +485,17 @@ export async function POST(request: NextRequest) {
         // Not fatal – instructions are still shown/emailed; admin matches by proof/email
       }
 
-      if (conference.owner_id) {
-        // Bank details are intentionally shared with the payer for bank transfer.
-        const { data: ownerProfile } = await supabase
-          .from('user_profiles')
-          .select('bank_account_number, bank_account_holder, bank_name, swift_bic')
-          .eq('id', conference.owner_id)
-          .maybeSingle()
-
-        if (ownerProfile?.bank_account_number) {
-          bankInstructions = {
-            recipient: ownerProfile.bank_account_holder || null,
-            iban: ownerProfile.bank_account_number,
-            bank_name: ownerProfile.bank_name || null,
-            swift_bic: ownerProfile.swift_bic || null,
-            amount: chargeable,
-            currency: feeCurrency,
-            reference: paymentReference,
-          }
-        } else {
-          return NextResponse.json(
-            {
-              error:
-                'Bank transfer is not available for this conference yet. Please contact the organizer.',
-            },
-            { status: 503 }
-          )
+      // Prefer conference payment_settings.bank_details; fall back to owner profile.
+      const bank = await resolveConferenceBankDetails(supabase, conference)
+      if (bank) {
+        bankInstructions = {
+          recipient: bank.account_holder,
+          iban: bank.iban,
+          bank_name: bank.bank_name,
+          swift_bic: bank.swift_bic,
+          amount: chargeable,
+          currency: feeCurrency,
+          reference: paymentReference,
         }
       } else {
         return NextResponse.json(

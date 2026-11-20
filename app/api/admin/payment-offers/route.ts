@@ -211,6 +211,12 @@ export async function GET(request: NextRequest) {
       throw ApiError.validationError('Missing inquiryId parameter')
     }
 
+    const uuidRe =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    if (!uuidRe.test(inquiryId)) {
+      throw ApiError.validationError('inquiryId must be a valid UUID')
+    }
+
     const { data: offers, error } = await supabase
       .from('payment_offers')
       .select(`

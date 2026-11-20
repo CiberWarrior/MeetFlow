@@ -109,16 +109,14 @@ export default function InquiriesPage() {
   }, [])
 
   const checkStripeConfiguration = async () => {
-    // Check if Stripe is configured by trying to fetch subscription plans
-    // If Stripe is not configured, the API will return an error
+    // Probe subscription plans — do not call payment-offers with a fake inquiry id
+    // (that caused Postgres 22P02 invalid uuid: "test").
     try {
-      const response = await fetch('/api/admin/payment-offers?inquiryId=test', {
+      const response = await fetch('/api/admin/subscription-plans', {
         method: 'GET',
       })
-      // If we get a 503, Stripe is not configured
       setStripeConfigured(response.status !== 503)
     } catch (error) {
-      // Assume not configured if check fails
       setStripeConfigured(false)
     }
   }

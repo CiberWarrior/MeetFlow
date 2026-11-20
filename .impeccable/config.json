@@ -26,6 +26,15 @@
         ],
         "createdAt": "2026-11-06T22:02:50.043Z",
         "reason": "Agent: existing admin KPI indigo accents; this edit only reports activation email failure"
+      },
+      {
+        "rule": "ai-color-palette",
+        "value": "*",
+        "files": [
+          "app/admin/inquiries/page.tsx"
+        ],
+        "createdAt": "2026-11-20T10:46:38.668Z",
+        "reason": "pre-existing page palette; only fixing hardcoded inquiryId=test that caused Postgres 22P02"
       }
     ]
   }

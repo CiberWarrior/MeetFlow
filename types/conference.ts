@@ -198,6 +198,15 @@ export interface ParticipantSettings {
   participantLabel?: string
 }
 
+/** Optional per-conference bank recipient for registration fees (virman). */
+export interface ConferenceBankDetailsSettings {
+  account_holder?: string | null
+  iban?: string | null
+  bank_name?: string | null
+  swift_bic?: string | null
+  address?: string | null
+}
+
 export interface PaymentSettings {
   enabled: boolean // Enable/disable payment for this conference
   allow_card: boolean // Legacy flag — conference registration uses bank transfer only; card is platform billing
@@ -207,6 +216,8 @@ export interface PaymentSettings {
   required_at_registration: boolean // Force payment preference selection (cannot be optional)
   bank_transfer_deadline_days: number // Days to complete bank transfer (default: 7)
   payment_deadline_days: number // Days before conference for "pay later" (default: 30)
+  /** When set, overrides the organizer profile bank account for this conference only. */
+  bank_details?: ConferenceBankDetailsSettings | null
 }
 
 /** How authors submit abstracts for a conference */
