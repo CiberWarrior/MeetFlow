@@ -59,7 +59,7 @@ export default function AccommodationTab({
               type="date"
               value={arrivalDate}
               onChange={(e) => onArrivalDateChange(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-4 py-3 rounded-lg border border-gray-400 bg-white text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
@@ -72,7 +72,7 @@ export default function AccommodationTab({
               value={departureDate}
               onChange={(e) => onDepartureDateChange(e.target.value)}
               min={arrivalDate}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-4 py-3 rounded-lg border border-gray-400 bg-white text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
             />
           </div>
 

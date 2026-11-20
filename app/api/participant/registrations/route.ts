@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
+import { createAdminClient } from '@/lib/supabase-admin'
 import { log } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
@@ -39,8 +40,9 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get all registrations with conference details
-    const { data: registrations, error: registrationsError } = await supabase
+    // Ownership verified; conference embed needs admin client (RLS 067).
+    const admin = createAdminClient()
+    const { data: registrations, error: registrationsError } = await admin
       .from('participant_registrations')
       .select(
         `

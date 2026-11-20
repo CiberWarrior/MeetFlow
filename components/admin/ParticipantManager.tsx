@@ -406,7 +406,7 @@ export default function ParticipantManager({
                                 updateParticipant(index, field.name, e.target.value)
                               }
                               placeholder={field.placeholder}
-                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              className="w-full px-4 py-3 rounded-lg border border-gray-400 bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             />
                           )}
 
@@ -420,7 +420,7 @@ export default function ParticipantManager({
                               }
                               placeholder={field.placeholder}
                               rows={4}
-                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              className="w-full px-4 py-3 rounded-lg border border-gray-400 bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             />
                           )}
 
@@ -434,7 +434,7 @@ export default function ParticipantManager({
                                 updateParticipant(index, field.name, e.target.value)
                               }
                               placeholder={field.placeholder}
-                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              className="w-full px-4 py-3 rounded-lg border border-gray-400 bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             />
                           )}
 
@@ -448,7 +448,7 @@ export default function ParticipantManager({
                                 updateParticipant(index, field.name, e.target.value)
                               }
                               placeholder={field.placeholder}
-                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              className="w-full px-4 py-3 rounded-lg border border-gray-400 bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             />
                           )}
 
@@ -464,7 +464,7 @@ export default function ParticipantManager({
                               placeholder={field.placeholder}
                               min={field.validation?.min}
                               max={field.validation?.max}
-                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              className="w-full px-4 py-3 rounded-lg border border-gray-400 bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             />
                           )}
 
@@ -477,7 +477,7 @@ export default function ParticipantManager({
                               onChange={(e) =>
                                 updateParticipant(index, field.name, e.target.value)
                               }
-                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              className="w-full px-4 py-3 rounded-lg border border-gray-400 bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             />
                           )}
 
@@ -489,7 +489,7 @@ export default function ParticipantManager({
                               onChange={(e) =>
                                 updateParticipant(index, field.name, e.target.value)
                               }
-                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              className="w-full px-4 py-3 rounded-lg border border-gray-400 bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             >
                               <option value="">{t('selectPlaceholder')}</option>
                               {field.options.map((option) => {
@@ -569,7 +569,7 @@ export default function ParticipantManager({
                                 placeholder={field.placeholder}
                                 rows={8}
                                 maxLength={field.validation?.maxLength}
-                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="w-full px-4 py-3 rounded-lg border border-gray-400 bg-white text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                               />
                               {field.validation?.maxLength && (
                                 <p className="text-xs text-gray-500 mt-1 text-right">

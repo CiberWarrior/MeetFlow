@@ -211,7 +211,7 @@ export default function PaymentSection({
                 value={companyName}
                 onChange={(e) => onCompanyNameChange(e.target.value)}
                 placeholder={t('companyNamePlaceholder') || 'Company Name Ltd.'}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                className="w-full px-4 py-3 rounded-lg border border-gray-400 bg-white text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
@@ -225,7 +225,7 @@ export default function PaymentSection({
                 value={companyCountry}
                 onChange={(e) => onCompanyCountryChange(e.target.value)}
                 placeholder={t('companyCountryPlaceholder') || 'Croatia'}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                className="w-full px-4 py-3 rounded-lg border border-gray-400 bg-white text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
@@ -239,7 +239,7 @@ export default function PaymentSection({
                 value={companyCity}
                 onChange={(e) => onCompanyCityChange(e.target.value)}
                 placeholder={t('companyCityPlaceholder') || 'Zagreb'}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                className="w-full px-4 py-3 rounded-lg border border-gray-400 bg-white text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
@@ -253,7 +253,7 @@ export default function PaymentSection({
                 value={companyPostalCode}
                 onChange={(e) => onCompanyPostalCodeChange(e.target.value)}
                 placeholder={t('companyPostalCodePlaceholder') || '10000'}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                className="w-full px-4 py-3 rounded-lg border border-gray-400 bg-white text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
@@ -267,7 +267,7 @@ export default function PaymentSection({
                 value={companyPhone}
                 onChange={(e) => onCompanyPhoneChange(e.target.value)}
                 placeholder={t('companyPhonePlaceholder') || '+385 1 234 5678'}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                className="w-full px-4 py-3 rounded-lg border border-gray-400 bg-white text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -280,7 +280,7 @@ export default function PaymentSection({
                 value={companyAddress}
                 onChange={(e) => onCompanyAddressChange(e.target.value)}
                 placeholder={t('companyAddressPlaceholder') || 'Street Name 123'}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                className="w-full px-4 py-3 rounded-lg border border-gray-400 bg-white text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
@@ -306,7 +306,7 @@ export default function PaymentSection({
                     value={companyVatNumber}
                     onChange={(e) => onCompanyVatNumberChange(e.target.value)}
                     placeholder={t('companyVatPlaceholder') || 'HR12345678901'}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-400 bg-white text-gray-900 placeholder:text-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
                     required={!companyNoVat}
                   />
                 </div>

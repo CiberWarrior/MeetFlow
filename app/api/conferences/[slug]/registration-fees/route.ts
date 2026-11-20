@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { log } from '@/lib/logger'
 import { getAvailableFeesForForm } from '@/lib/custom-registration-fees'
@@ -11,8 +10,8 @@ export const dynamic = 'force-dynamic'
  * GET /api/conferences/[slug]/registration-fees
  *
  * Public: returns custom registration fees for the registration form.
- * Conference is resolved by slug (server client, RLS); fees are read with admin client
- * so the list always returns regardless of RLS on custom_registration_fees.
+ * Uses admin client so authenticated visitors (participants / unrelated admins)
+ * are not blocked by scoped conferences RLS (migration 067).
  */
 export async function GET(
   _request: NextRequest,
@@ -20,20 +19,6 @@ export async function GET(
 ) {
   try {
     const { slug } = await params
-    const serverClient = await createServerClient()
-
-    const { data: conf, error: confError } = await serverClient
-      .from('conferences')
-      .select('id')
-      .eq('slug', slug)
-      .single()
-
-    if (confError || !conf) {
-      return NextResponse.json(
-        { error: 'Conference not found' },
-        { status: 404 }
-      )
-    }
 
     let adminClient
     try {
@@ -45,6 +30,21 @@ export async function GET(
         { status: 503 }
       )
     }
+
+    const { data: conf, error: confError } = await adminClient
+      .from('conferences')
+      .select('id')
+      .eq('slug', slug)
+      .eq('published', true)
+      .single()
+
+    if (confError || !conf) {
+      return NextResponse.json(
+        { error: 'Conference not found' },
+        { status: 404 }
+      )
+    }
+
     const fees: RegistrationFeeOption[] = await getAvailableFeesForForm(
       adminClient,
       conf.id
@@ -52,7 +52,6 @@ export async function GET(
 
     return NextResponse.json({
       fees,
-      // Default currency when conference has no fees (optional for form)
       currency: fees[0]?.currency ?? 'EUR',
     })
   } catch (e) {

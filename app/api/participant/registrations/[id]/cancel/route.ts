@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
+import { createAdminClient } from '@/lib/supabase-admin'
 import { log } from '@/lib/logger'
 import { z } from 'zod'
 
@@ -52,8 +53,9 @@ export async function POST(
       )
     }
 
-    // Get current registration
-    const { data: registration, error: getError } = await supabase
+    // Ownership verified; conference start_date via admin client (RLS 067).
+    const admin = createAdminClient()
+    const { data: registration, error: getError } = await admin
       .from('participant_registrations')
       .select('*, conference:conferences(start_date)')
       .eq('id', params.id)
