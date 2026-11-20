@@ -68,13 +68,67 @@ Upisani iznos na obrascu kotizacije je bruto. Uz primjer stope 25% sudionik i da
 
 Dio detalja ne treba zaključati sada. Renata je 19. 11. 2026. rekla da će se s agencijom dogovoriti kasnije, jer ovisi od konferencije do konferencije. To su cijene doplata, hoteli, postotak PDV-a, pravila otkazivanja, način prijenosa dokumentacije te naziv banke i SWIFT. Sposobnost aplikacije za virman, kotizacije, polja, sažetak i admine time se ne mijenja.
 
-## Lokalni prolaz
+## Lokalni prolaz (19. 11. 2026.)
 
-Konferencija s ovim cijenama nije stvorena. `.env.local` pokazuje na udaljeni Supabase, a lokalni portovi 54321 i 54322 su zatvoreni. Upis bi bio u toj udaljenoj bazi. SQL i Supabase naredbe nisu pokretane. Produkcija nije mijenjana.
+Lokalno, 19. 11. 2026.: Jest 24 skupa, 166 prolaza, 0 padova. Lint i build su prošli (Next.js 14.2.33). SQL i Supabase CLI nisu pokretani. Dva testa drže cijene 500, 400 i 300 eura na formi, predračunu i u potvrdi. Treći test drži datum: 31. 3. 2027. → 500/400/300, od 1. 4. 2027. → 600/500/400. Sve na lažnoj bazi u memoriji.
 
-Lokalno, 19. 11. 2026.: Jest 24 skupa, 166 prolaza, 0 padova. Lint je prošao bez ESLint upozorenja. Build je prošao (Next.js 14.2.33). Ostala su već poznata upozorenja: Edge `process.versions` iz Supabasea, velik webpack niz, te zastarjeli podaci za preglednike. Produkcija nije dirana ovim prolazom osim pusha na GitHub.
+## Stanje pilota — 20. 11. 2026. (za handoff agentu)
 
-Dva testa drže cijene 500, 400 i 300 eura na formi, predračunu i u potvrdi. Treći test drži datum: prijava 31. 3. 2027. plaća 500, 400 i 300 eura, a od 1. 4. 2027. plaća 600, 500 i 400 eura. Kasnija cijena toga dana nije naplativa, i obrnuto. Sve je na lažnoj bazi u memoriji. Pravi e-mail nije poslan. Konferencija nije stvorena.
+Workspace: `/Users/renchi/Documents/Cursor/MeetFlow`. Produkcija: https://meetflow-conference.vercel.app. Vercel projekt: `meetflow` (`prj_76eZrWypmY3928bgIO6ZFjOOhzeY`). Repo: `CiberWarrior/MeetFlow`, `main`. Pravila: bez SQL-a, bez `supabase db push` / migration repair; bez commit/push/deploy i bez produkcijskih izmjena bez izričitog odobrenja; migracija 066 već ručno primijenjena.
+
+### Commiti na `main` (deploy preko Vercela)
+
+| Hash | Opis |
+| --- | --- |
+| `d78fe26` | Kotizacije na obrascu kao bruto (`prices_include_vat`); testovi 500/400/300 |
+| `38ae44a` | Test datuma: 31. 3. → 500/400/300; od 1. 4. → 600/500/400 |
+| `06307ee` | Predračun više ne selektira nepostojeće stupce `address`, `city`, `country` na `user_profiles` |
+| `8286bf8` | Ugrađen Noto Sans u predračun radi hrvatskih slova (č/ć/š/ž/đ) |
+
+Lokalno nakon `8286bf8` (lažno okruženje): **167** testova, lint čist, build OK.
+
+### Testna konferencija u produkciji
+
+- Naziv: **IST 2027**
+- ID: `8c0a5da3-0420-4286-8b76-6aad5be18724`
+- Slug: `ist-2027`
+- Stanje: **nacrt** (`published=false`); javni API vraća 404. Privremeno se objavljivala samo za test prijave, pa vraćena u nacrt.
+- Šest kotizacija u `custom_registration_fees` (rane 500/400/300 do 31. 3. 2027., kasne 600/500/400 od 1. 4. 2027.).
+- Polja prijave: `first_name`, `last_name`, `email` (required) u `settings.custom_registration_fields`.
+
+### Provedene prijave (sintetički podaci)
+
+1. `REG-001-b8cc` — Test Participant, `ist-2027-test@example.com`, 500.00 EUR, virman, Pending Payment.
+2. `REG-001-5fdd` — Test Proforma, `ist-2027-proforma@example.com`, 500.00 EUR, virman. Predračun HTTP 200 nakon `06307ee`; iznos 500.00 EUR potvrđen na formi, potvrdi i u PDF-u.
+
+Primatelj uplate na predračunu dolazi s profila vlasnika (trenutno PMF / `HR1234567890097`), **ne** e-Tours IBAN `HR6524840081100145534`.
+
+### E-mail (blokirano — čeka Resend)
+
+- Potvrda prijave ne ide. Vercel logovi: `Registration confirmation email was rejected`, status **404**.
+- App zove Supabase Edge Function `{SUPABASE_URL}/functions/v1/send-confirmation-email` (`lib/email.ts` → `sendRegistrationConfirmation`).
+- Funkcija **je deployana** kroz Supabase dashboard (kod iz `supabase/functions/send-confirmation-email/index.ts`).
+- U Edge Function Secrets **nema** `RESEND_API_KEY` (custom secrets prazni).
+- Renata se nije mogla ulogirati u Resend (MFA one-time code na `@screatives.info` ne stiže). Čeka se pristup Resendu / API ključ.
+- Default pošiljatelj u funkciji: `MeetFlow <noreply@renatahorvat.com>`.
+- Testne adrese su `@example.com` — za pravi test treba stvarna adresa.
+
+### Vercel env (samo imena; vrijednosti nisu čitane)
+
+Postoje: `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.  
+Nema `RESEND_API_KEY` / `EMAIL_FROM` na Vercelu (za potvrdu prijave ključ ide u Supabase secrets funkcije).  
+Poveznica na predračun u potvrdi još vodi na placeholder host `conference-platform-abc123.vercel.app` → treba ispraviti `NEXT_PUBLIC_APP_URL` (uz odobrenje).
+
+### Otvoreno (prioritet)
+
+1. Resend: API Key → Supabase Edge Functions → Secrets → `RESEND_API_KEY`. Zatim testna prijava na stvarnu adresu (privremeno objaviti IST 2027, pa vratiti u nacrt).
+2. `NEXT_PUBLIC_APP_URL` na `https://meetflow-conference.vercel.app` (ili pravu domenu) + redeploy — **samo uz odobrenje**.
+3. PDV % od agencije; banka/SWIFT e-Toursa; primatelj uplate na profilu organizatora.
+4. Opcionalno: očistiti testne prijave `REG-001-b8cc` / `REG-001-5fdd` (samo uz odobrenje).
+
+### Preporučeni idući korak
+
+Čim postoji Resend ključ: upisati `RESEND_API_KEY` u Supabase Secrets, zatim jedna testna prijava na stvarnu email adresu i provjera inboxa. Paralelno (uz odobrenje): popravak `NEXT_PUBLIC_APP_URL`.
 
 ## Kasnije, po konferenciji
 

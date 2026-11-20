@@ -1,5 +1,17 @@
 # MeetFlow AI handoff
 
+Snapshot: 2026-11-20 (Europe/Zagreb).
+Repository: `/Users/renchi/Documents/Cursor/MeetFlow`.
+`HEAD` / `origin/main`: `8286bf8` (`fix(proforma): embed Noto Sans so Croatian characters render`).
+
+**IST 2027 pilot status (full report):** `docs/pilot/TEST_KONFERENCIJA.md` → section **Stanje pilota — 20. 11. 2026.** Draft conference `ist-2027` exists in production; fees and proforma amounts verified at 500 EUR; confirmation email blocked pending `RESEND_API_KEY` in Supabase Edge Function secrets (Resend MFA login blocked for Renata). Do not run SQL or Supabase CLI; do not change Vercel env without approval.
+
+**Recommended next task:** After Renata obtains a Resend API key, add `RESEND_API_KEY` to Supabase Edge Function secrets for `send-confirmation-email`, then run one registration to a real inbox (temporarily publish IST 2027, then revert to draft). Optionally, with approval, set `NEXT_PUBLIC_APP_URL` to `https://meetflow-conference.vercel.app`.
+
+Earlier snapshot below (2026-11-07 / 2026-11-19). Where it disagrees with the paragraph above or with `docs/pilot/TEST_KONFERENCIJA.md`, those win.
+
+---
+
 Snapshot: 2026-11-07 (Europe/Zagreb).
 Repository: `/Users/renchi/Documents/Cursor/MeetFlow`.
 Latest update: 2026-11-19. Jest, lint, and build ran locally with dummy environment values. No production connection, SQL, Supabase command, or deployment. The dashboard mocks now provide `useSearchParams`. Jest: 163 passed, 0 failed, 22 suites, exit 0. `npm run lint` and `npm run build` then exited 0 (`Compiled successfully`, Next.js 14.2.33). The 2026-11-06 result of 4 failed dashboard tests stays below as history and is no longer current.
