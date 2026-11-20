@@ -19,11 +19,26 @@ type ConferenceLike = {
  * Prefer bank details stored on the conference (payment_settings.bank_details).
  * Fall back to the conference owner's profile so existing conferences keep working.
  */
+function asSettingsObject(
+  raw: ConferenceLike['settings']
+): Record<string, any> {
+  if (!raw) return {}
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw)
+      return parsed && typeof parsed === 'object' ? (parsed as Record<string, any>) : {}
+    } catch {
+      return {}
+    }
+  }
+  return raw as Record<string, any>
+}
+
 export async function resolveConferenceBankDetails(
   supabase: SupabaseClient,
   conference: ConferenceLike
 ): Promise<ConferenceBankDetails | null> {
-  const settings = (conference.settings || {}) as Record<string, any>
+  const settings = asSettingsObject(conference.settings)
   const fromSettings = settings.payment_settings?.bank_details as
     | Partial<ConferenceBankDetails>
     | null

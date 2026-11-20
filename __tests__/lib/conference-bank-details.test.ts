@@ -46,6 +46,30 @@ describe('resolveConferenceBankDetails', () => {
     expect(from).not.toHaveBeenCalled()
   })
 
+  it('parses stringified conference settings before reading bank_details', async () => {
+    const from = jest.fn()
+
+    const bank = await resolveConferenceBankDetails({ from } as never, {
+      owner_id: 'owner-1',
+      name: 'IST 2027',
+      settings: JSON.stringify({
+        payment_settings: {
+          bank_details: {
+            account_holder: 'e-Tours d.o.o.',
+            iban: 'HR6524840081100145534',
+            bank_name: 'Raiffeisenbank Austria d.d.',
+            swift_bic: null,
+            address: 'Ulica grada Vukovara 5/1, 10000 Zagreb',
+          },
+        },
+      }),
+    })
+
+    expect(bank?.iban).toBe('HR6524840081100145534')
+    expect(bank?.account_holder).toBe('e-Tours d.o.o.')
+    expect(from).not.toHaveBeenCalled()
+  })
+
   it('falls back to the owner profile when conference bank_details are empty', async () => {
     const from = jest.fn(() => ({
       select: () => ({

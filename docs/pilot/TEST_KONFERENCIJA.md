@@ -84,8 +84,9 @@ Workspace: `/Users/renchi/Documents/Cursor/MeetFlow`. Produkcija: https://meetfl
 | `38ae44a` | Test datuma: 31. 3. → 500/400/300; od 1. 4. → 600/500/400 |
 | `06307ee` | Predračun više ne selektira nepostojeće stupce `address`, `city`, `country` na `user_profiles` |
 | `8286bf8` | Ugrađen Noto Sans u predračun radi hrvatskih slova (č/ć/š/ž/đ) |
+| `d091d42` | Bankovni podaci po konferenciji (`payment_settings.bank_details`); popravak `inquiryId=test` |
 
-Lokalno nakon `8286bf8` (lažno okruženje): **167** testova, lint čist, build OK.
+Lokalno nakon `d091d42` (lažno okruženje): **169** testova, lint čist, build OK.
 
 ### Testna konferencija u produkciji
 
@@ -94,14 +95,15 @@ Lokalno nakon `8286bf8` (lažno okruženje): **167** testova, lint čist, build 
 - Slug: `ist-2027`
 - Stanje: **nacrt** (`published=false`); javni API vraća 404. Privremeno se objavljivala samo za test prijave, pa vraćena u nacrt.
 - Šest kotizacija u `custom_registration_fees` (rane 500/400/300 do 31. 3. 2027., kasne 600/500/400 od 1. 4. 2027.).
-- Polja prijave: `first_name`, `last_name`, `email` (required) u `settings.custom_registration_fields`.
+- Polja prijave (ažurirano 20. 11. 2026.): title, first_name, last_name, email, country, institution, symposium_dinner, friday_excursion, dietary_notes. `registration_info_text` objašnjava što kotizacija uključuje. `email_settings.reply_to` = `mice@etours.hr`.
 
 ### Provedene prijave (sintetički podaci)
 
 1. `REG-001-b8cc` — Test Participant, `ist-2027-test@example.com`, 500.00 EUR, virman, Pending Payment.
 2. `REG-001-5fdd` — Test Proforma, `ist-2027-proforma@example.com`, 500.00 EUR, virman. Predračun HTTP 200 nakon `06307ee`; iznos 500.00 EUR potvrđen na formi, potvrdi i u PDF-u.
+3. Dodatne sintetičke prijave 20. 11. 2026. radi provjere bankovnih podataka (`ist-2027-bankverify*@example.com`).
 
-Primatelj uplate na predračunu dolazi s profila vlasnika (trenutno PMF / `HR1234567890097`), **ne** e-Tours IBAN `HR6524840081100145534`.
+Primatelj uplate za IST 2027: u `settings.payment_settings.bank_details` stoji **e-Tours d.o.o.**, IBAN `HR6524840081100145534`, banka Raiffeisenbank Austria d.d., adresa Ulica grada Vukovara 5/1, Zagreb. `/api/register` u `bank_instructions` već vraća e-Tours. Predračun PDF na produkciji je 20. 11. još pokazivao stari PMF/HR123… — dodatni fix parsira string `settings` i prosljeđuje već razriješene bankovne podatke u PDF builder.
 
 ### E-mail (blokirano — čeka Resend)
 
@@ -116,19 +118,19 @@ Primatelj uplate na predračunu dolazi s profila vlasnika (trenutno PMF / `HR123
 ### Vercel env (samo imena; vrijednosti nisu čitane)
 
 Postoje: `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.  
-Nema `RESEND_API_KEY` / `EMAIL_FROM` na Vercelu (za potvrdu prijave ključ ide u Supabase secrets funkcije).  
-Poveznica na predračun u potvrdi još vodi na placeholder host `conference-platform-abc123.vercel.app` → treba ispraviti `NEXT_PUBLIC_APP_URL` (uz odobrenje).
+`NEXT_PUBLIC_APP_URL` = `https://meetflow-conference.vercel.app` (production/preview/development), redeploy READY.  
+Nema `RESEND_API_KEY` / `EMAIL_FROM` na Vercelu (za potvrdu prijave ključ ide u Supabase secrets funkcije).
 
 ### Otvoreno (prioritet)
 
-1. Resend: API Key → Supabase Edge Functions → Secrets → `RESEND_API_KEY`. Zatim testna prijava na stvarnu adresu (privremeno objaviti IST 2027, pa vratiti u nacrt).
-2. `NEXT_PUBLIC_APP_URL` na `https://meetflow-conference.vercel.app` (ili pravu domenu) + redeploy — **samo uz odobrenje**.
-3. PDV % od agencije; banka/SWIFT e-Toursa; primatelj uplate na profilu organizatora.
-4. Opcionalno: očistiti testne prijave `REG-001-b8cc` / `REG-001-5fdd` (samo uz odobrenje).
+1. Resend: API Key → Supabase Edge Functions → Secrets → `RESEND_API_KEY` (Renata čeka MFA odobrenje). Zatim testna prijava na stvarnu adresu.
+2. Nakon deploya bank/PDF fixa: vizualno potvrditi predračun (e-Tours + IBAN …5534); headeri `X-Bank-Source` / `X-Bank-Iban-Last4` pomažu dijagnostici.
+3. PDV % od agencije; SWIFT e-Toursa (opcionalno).
+4. Opcionalno: očistiti testne prijave (samo uz odobrenje).
 
 ### Preporučeni idući korak
 
-Čim postoji Resend ključ: upisati `RESEND_API_KEY` u Supabase Secrets, zatim jedna testna prijava na stvarnu email adresu i provjera inboxa. Paralelno (uz odobrenje): popravak `NEXT_PUBLIC_APP_URL`.
+Potvrditi e-Tours na predračunu nakon deploya. Resend ostaje blokiran dok Renata ne dobije MFA.
 
 ## Kasnije, po konferenciji
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import { handleApiError, ApiError } from '@/lib/api-error'
 import { resolveManageToken } from '@/lib/registration-manage-token'
+import { resolveConferenceBankDetails } from '@/lib/conference-bank-details'
 import { buildProformaPdfForRegistration } from '@/lib/registration-proforma-data'
 
 export const dynamic = 'force-dynamic'
@@ -33,14 +34,31 @@ export async function GET(
       throw ApiError.notFound('Registration not found for this conference')
     }
 
+    // Supabase usually returns jsonb as an object; parse if a string slips through
+    // (same guard as the public conference route) so bank_details resolve correctly.
+    const conferenceForPdf = conference as Record<string, unknown>
+    if (typeof conferenceForPdf.settings === 'string') {
+      try {
+        conferenceForPdf.settings = JSON.parse(conferenceForPdf.settings)
+      } catch {
+        // keep original; resolveConferenceBankDetails will fall back to owner profile
+      }
+    }
+
     const localeParam = request.nextUrl.searchParams.get('locale')
     const locale = localeParam === 'hr' ? 'hr' : 'en'
+
+    // Resolve bank here so the PDF path cannot silently diverge from /api/register.
+    const bank = await resolveConferenceBankDetails(supabase, conferenceForPdf)
+    if (!bank) {
+      throw ApiError.notFound('Proforma invoice is not available for this registration')
+    }
 
     const pdf = await buildProformaPdfForRegistration(
       supabase,
       row.registration,
-      conference,
-      { locale }
+      conferenceForPdf,
+      { locale, bank }
     )
 
     if (!pdf) {
@@ -51,10 +69,19 @@ export async function GET(
       row.registration.registration_number ||
       row.registration.id.substring(0, 8).toUpperCase()
 
+    const settingsObj =
+      conferenceForPdf.settings && typeof conferenceForPdf.settings === 'object'
+        ? (conferenceForPdf.settings as Record<string, any>)
+        : {}
+    const fromSettings = !!settingsObj.payment_settings?.bank_details?.iban
+
     return new NextResponse(new Uint8Array(pdf), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="proforma-${ref}.pdf"`,
+        // Temporary pilot diagnostics (no full IBAN): confirm which bank source was used.
+        'X-Bank-Source': fromSettings ? 'conference' : 'profile',
+        'X-Bank-Iban-Last4': bank.iban.slice(-4),
       },
     })
   } catch (error) {

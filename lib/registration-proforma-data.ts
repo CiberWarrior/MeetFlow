@@ -1,5 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { resolveConferenceBankDetails } from '@/lib/conference-bank-details'
+import {
+  resolveConferenceBankDetails,
+  type ConferenceBankDetails,
+} from '@/lib/conference-bank-details'
 import { extractRegistrationContact } from '@/lib/registration-contact'
 import {
   generateProformaInvoicePdf,
@@ -8,6 +11,8 @@ import {
 
 interface BuildProformaOptions {
   locale?: 'hr' | 'en'
+  /** When set (e.g. by the proforma route), skip a second bank lookup. */
+  bank?: ConferenceBankDetails | null
 }
 
 export async function buildProformaPdfForRegistration(
@@ -25,7 +30,8 @@ export async function buildProformaPdfForRegistration(
   const paymentSettings = settings.payment_settings || {}
   const deadlineDays = Number(paymentSettings.bank_transfer_deadline_days || 7)
 
-  const bank = await resolveConferenceBankDetails(supabase, conference)
+  const bank =
+    options.bank ?? (await resolveConferenceBankDetails(supabase, conference))
   if (!bank) return null
 
   const lineItems: ProformaInvoiceInput['lineItems'] = []
