@@ -47,7 +47,7 @@ Kartica nije uvjet. Pilot ostaje na virmanu.
 | --- | --- | --- | --- |
 | QR evidencija dolazaka: ne | Check-in postoji i ne mora se uključiti | Ništa | Ne uključivati |
 | Bedž i potvrda: traže potvrdu o sudjelovanju | Generiranje potvrde postoji. Bedž također, ali ga nisu tražili | Njihov predložak potvrde. Bedž ostaje isključen dok ga izričito ne zatraže | Postava predloška. Ako predložak mora izgledati kao njihov: malo |
-| Dva člana tima u adminu: Mirela.Gaspar@bcdme.com.hr i mice@etours.hr | Conference admin se poziva po konferenciji | Računi još nisu otvoreni. Ovo je dopuna dokumenta, ne pozivnica | Postava dva računa, kad se pilot smije pisati u bazu |
+| Dva člana tima u adminu: Mirela.Gaspar@bcdme.com.hr i mice@etours.hr | Conference admin se poziva po konferenciji | Oba računa postoje kao `conference_admin` samo za IST 2027, s uređivanjem uključenim i brisanjem isključenim. Aktivacijski e-mail još nije otišao | Ponovno slanje poveznice iz produkcijskog admina, pa objava koda koji otključava spremanje |
 | Svakodnevni izvoz: smještaj i uplate. Smještaj ide u istu prijavu | Hotel, dolazak i odlazak su na formi. CSV ima hotel i status plaćanja | Nema popisa hotela ni cijena noćenja | Postava čim stigne cjenik smještaja |
 
 ## 5. Operativa
@@ -89,7 +89,7 @@ Workspace: `/Users/renchi/Documents/Cursor/MeetFlow`. Produkcija: https://meetfl
 | Primatelj | e-Tours d.o.o., IBAN `HR6524840081100145534`, Raiffeisenbank Austria d.d., Ulica grada Vukovara 5/1, Zagreb |
 | Virman na PDF-u | Model HR00 · poziv sa znamenkama i crticama (npr. `2027-001`) · oznaka prijave u opisu |
 
-Sintetičke `@example.com` prijave obrisane (20. 11. 2026.). Ostala je stvarna prijava `IST2027-001`. Testni conference_admin računi obrisani; ostao super admin.
+Sintetičke `@example.com` prijave obrisane (20. 11. 2026.). Ostala je stvarna prijava `IST2027-001`. Testni conference_admin računi obrisani. Osim super admina, otvorena su dva računa za Mirelu (`mice@etours.hr`, `mirela.gaspar@bcdme.com.hr`), samo za IST 2027. Aktivacijski e-mail još nije poslan.
 
 ### E-mail
 

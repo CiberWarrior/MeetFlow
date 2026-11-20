@@ -143,9 +143,12 @@ export async function requireConferencePermission(
 
   // If specific permission is requested, check it
   if (permission) {
-    // For can_edit_conference and can_delete_data, only super admins can have these
-    if ((permission === 'can_edit_conference' || permission === 'can_delete_data') && auth.profile.role !== 'super_admin') {
-      throw ApiError.forbidden(`You do not have permission to ${permission.replace('can_', '').replace(/_/g, ' ')} for this conference`)
+    // Deleting participant data stays super-admin-only, even when the column is true.
+    // Editing follows the permission row for the assigned conference.
+    if (permission === 'can_delete_data' && auth.profile.role !== 'super_admin') {
+      throw ApiError.forbidden(
+        'You do not have permission to delete data for this conference'
+      )
     }
 
     // Check the actual permission column. Operational permissions default to

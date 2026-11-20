@@ -3,10 +3,12 @@
  */
 import { NextRequest } from 'next/server'
 import { GET as listConferences } from '@/app/api/admin/conferences/route'
-import { GET as getConference } from '@/app/api/admin/conferences/[id]/route'
+import { DELETE as deleteConference, GET as getConference } from '@/app/api/admin/conferences/[id]/route'
 import { GET as getPlans } from '@/app/api/admin/subscription-plans/route'
+import { createAdminClient } from '@/lib/supabase-admin'
 import {
   requireAuth,
+  requireCanEditConference,
   requireSuperAdmin,
   requireConferencePermission,
 } from '@/lib/api-auth'
@@ -28,7 +30,9 @@ jest.mock('@/lib/supabase-admin', () => ({
 
 const requireAuthMock = requireAuth as jest.Mock
 const requireSuperAdminMock = requireSuperAdmin as jest.Mock
+const requireCanEditConferenceMock = requireCanEditConference as jest.Mock
 const requireConferencePermissionMock = requireConferencePermission as jest.Mock
+const createAdminClientMock = createAdminClient as jest.Mock
 
 const OWNED_ID = '11111111-1111-1111-1111-111111111111'
 const OTHER_ID = '22222222-2222-2222-2222-222222222222'
@@ -122,6 +126,24 @@ describe('admin conference scoping', () => {
     )
 
     expect(requireConferencePermissionMock).toHaveBeenCalledWith(OTHER_ID)
+    expect(res.status).toBe(403)
+  })
+
+  it('DELETE /api/admin/conferences/[id] stays super-admin only', async () => {
+    requireSuperAdminMock.mockRejectedValue(
+      ApiError.forbidden('Only super admins can access this resource')
+    )
+
+    const res = await deleteConference(
+      new NextRequest(`http://localhost:3000/api/admin/conferences/${OWNED_ID}`, {
+        method: 'DELETE',
+      }),
+      { params: { id: OWNED_ID } }
+    )
+
+    expect(requireSuperAdminMock).toHaveBeenCalled()
+    expect(requireCanEditConferenceMock).not.toHaveBeenCalled()
+    expect(createAdminClientMock).not.toHaveBeenCalled()
     expect(res.status).toBe(403)
   })
 

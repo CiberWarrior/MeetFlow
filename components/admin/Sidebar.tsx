@@ -7,6 +7,7 @@ import { useTranslations } from 'next-intl'
 import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { useAuth } from '@/contexts/AuthContext'
 import { useConference } from '@/contexts/ConferenceContext'
+import { supabase } from '@/lib/supabase'
 
 interface NavItem {
   name: string
@@ -15,6 +16,7 @@ interface NavItem {
   icon: React.ReactNode
   superAdminOnly?: boolean
   requiresPermission?: string
+  requiresAnyPermission?: string[]
 }
 
 interface NavSection {
@@ -131,6 +133,7 @@ const navigationSections: NavSection[] = [
         name: 'Registrations',
         sidebarKey: 'registrations',
         href: '/admin/registrations',
+        requiresPermission: 'can_view_registrations',
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -141,6 +144,7 @@ const navigationSections: NavSection[] = [
         name: 'Abstract Submission',
         sidebarKey: 'abstractSubmission',
         href: '/admin/abstracts',
+        requiresPermission: 'can_manage_abstracts',
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
@@ -151,6 +155,7 @@ const navigationSections: NavSection[] = [
         name: 'Program',
         sidebarKey: 'program',
         href: '/admin/program',
+        requiresPermission: 'can_edit_conference',
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -161,6 +166,7 @@ const navigationSections: NavSection[] = [
         name: 'Registration Payments',
         sidebarKey: 'payments',
         href: '/admin/payments',
+        requiresPermission: 'can_manage_payments',
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -171,6 +177,7 @@ const navigationSections: NavSection[] = [
         name: 'Check-In',
         sidebarKey: 'checkIn',
         href: '/admin/checkin',
+        requiresPermission: 'can_check_in',
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -181,6 +188,7 @@ const navigationSections: NavSection[] = [
         name: 'Certificates',
         sidebarKey: 'certificates',
         href: '/admin/certificates',
+        requiresPermission: 'can_generate_certificates',
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
@@ -191,6 +199,7 @@ const navigationSections: NavSection[] = [
         name: 'Tickets',
         sidebarKey: 'tickets',
         href: '/admin/tickets',
+        requiresAnyPermission: ['can_view_registrations', 'can_manage_abstracts'],
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
@@ -201,6 +210,7 @@ const navigationSections: NavSection[] = [
         name: 'Conference Settings',
         sidebarKey: 'conferenceSettings',
         href: '/admin/conferences', // overridden with conference id in render
+        requiresAnyPermission: ['can_edit_conference', 'can_manage_abstracts'],
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -225,6 +235,7 @@ export default function Sidebar({
   const { isSuperAdmin, isImpersonating, role, loading: authLoading, profile } = useAuth()
   const { currentConference } = useConference()
   const [userPermissions, setUserPermissions] = useState<Record<string, boolean>>({})
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false)
 
   // While impersonating, the sidebar should behave exactly like the impersonated
   // conference admin sees it – not like the underlying super admin account.
@@ -232,15 +243,30 @@ export default function Sidebar({
 
   useEffect(() => {
     setMounted(true)
-    // Fetch user permissions if Conference Admin
-    if (profile && profile.role === 'conference_admin') {
-      // In simplified approach, Conference Admin has most permissions by default
-      setUserPermissions({
-        can_manage_registration_form: true,
-        can_view_analytics: true,
-      })
+    if (!profile || profile.role !== 'conference_admin' || !currentConference?.id) {
+      setUserPermissions({})
+      setPermissionsLoaded(profile?.role !== 'conference_admin')
+      return
     }
-  }, [profile])
+
+    let cancelled = false
+    setPermissionsLoaded(false)
+    supabase
+      .from('conference_permissions')
+      .select('can_view_registrations, can_export_data, can_manage_payments, can_manage_abstracts, can_check_in, can_generate_certificates, can_edit_conference, can_manage_registration_form, can_view_analytics')
+      .eq('user_id', profile.id)
+      .eq('conference_id', currentConference.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return
+        setUserPermissions((data || {}) as Record<string, boolean>)
+        setPermissionsLoaded(true)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [profile, currentConference?.id])
 
   // Different sidebar colors based on role
   const sidebarBgColor = isSuperAdmin 
@@ -287,9 +313,13 @@ export default function Sidebar({
         items: section.items.filter((item) => {
           if (item.superAdminOnly && !effectiveSuperAdmin) return false
           if (item.sidebarKey === 'conferenceSettings' && !currentConference) return false
-          if (item.requiresPermission) {
+          if (item.requiresPermission || item.requiresAnyPermission) {
             if (effectiveSuperAdmin) return true
-            return userPermissions[item.requiresPermission] === true
+            if (!permissionsLoaded) return false
+            if (item.requiresAnyPermission) {
+              return item.requiresAnyPermission.some((key) => userPermissions[key] === true)
+            }
+            return userPermissions[item.requiresPermission || ''] === true
           }
           return true
         }),

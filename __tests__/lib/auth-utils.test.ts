@@ -108,7 +108,7 @@ describe('Auth Utils', () => {
     })
 
     it('should have correct permission values for conference admin', () => {
-      // Conference admin should not be able to edit conference or delete data
+      // This sample row has edit and delete off until a super admin grants edit.
       expect(mockConferencePermission.can_edit_conference).toBe(false)
       expect(mockConferencePermission.can_delete_data).toBe(false)
       // But should be able to do other things
@@ -160,10 +160,10 @@ describe('Auth Utils', () => {
       // Can view registrations
       expect(permission.can_view_registrations).toBe(true)
 
-      // Cannot edit conference
+      // This sample row does not grant conference editing.
       expect(permission.can_edit_conference).toBe(false)
 
-      // Cannot delete data
+      // Delete stays off on the sample row.
       expect(permission.can_delete_data).toBe(false)
     })
   })

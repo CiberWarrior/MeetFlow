@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireCanEditConference } from '@/lib/api-auth'
+import { requireConferencePermission } from '@/lib/api-auth'
 import { handleApiError, ApiError } from '@/lib/api-error'
 import { createAdminClient } from '@/lib/supabase-admin'
 import {
@@ -55,7 +55,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    await requireCanEditConference(params.id)
+    await requireConferencePermission(params.id, 'can_manage_abstracts')
 
     const formData = await request.formData()
     const fileEntry = formData.get('file')
@@ -111,7 +111,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    await requireCanEditConference(params.id)
+    await requireConferencePermission(params.id, 'can_manage_abstracts')
 
     const { supabase, conference } = await loadConference(params.id)
     const previous = (conference.settings as Partial<ConferenceSettings> | null)?.abstract_template

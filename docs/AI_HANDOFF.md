@@ -1,12 +1,17 @@
 # MeetFlow AI handoff
 
-Snapshot: 2026-11-20 (Europe/Zagreb).
+Snapshot: 2026-11-20 evening (Europe/Zagreb).
 Repository: `/Users/renchi/Documents/Cursor/MeetFlow`.
 See `docs/pilot/TEST_KONFERENCIJA.md` → **Priprema za klijentsko testiranje**.
 
-**IST 2027:** published `ist-2027`, code `IST2027`, e-Tours bank details, fees/fields/reply-to ready. Proforma uses **HR00** + numeric poziv. `NEXT_PUBLIC_APP_URL` set. Resend key in Edge Secrets; first real-inbox confirmation still to verify. Synthetic `@example.com` regs and test conference_admins removed. Scoped-admin code + migration `067` are local, not committed/applied.
+**Done (production data, code still local):** IST 2027 published (`ist-2027`, code `IST2027`). Migration `067` applied. Two `conference_admin` accounts exist for Mirela Gašpar — `mice@etours.hr` and `mirela.gaspar@bcdme.com.hr` — assigned only to IST 2027 (`8c0a5da3-0420-4286-8b76-6aad5be18724`), with `can_edit_conference` true, `can_manage_abstracts` false, and `can_delete_data` false. Neither has confirmed email or signed in. Activation email was **not** sent: the local `RESEND_API_KEY` returned HTTP 401. Do not create these accounts again. Migration `068` is written and has **not** been run.
 
-**Recommended next task:** (1) Apply `067_scope_authenticated_conference_select.sql` in SQL Editor. (2) Commit/push scoped-admin changes and wait for Vercel. (3) Client registration test at `/conferences/ist-2027/register`. Do not run `supabase db push`.
+**Done (local code, not deployed):** `requireConferencePermission` now honors `can_edit_conference` on the assigned conference. `can_delete_data` stays super-admin-only. `DELETE /api/admin/conferences/[id]` uses `requireSuperAdmin`. Conference settings and the sidebar split registration from abstracts: registration admin cannot save abstract fields, abstract admin cannot save bank, fees, or registration fields. Jest for the permission tests passed locally. Production still runs the old code until this is deployed.
+
+**Recommended next task:** Run `supabase/migrations/068_scope_registration_and_abstract_permissions.sql` manually in the SQL Editor (rollback: `docs/sql/ROLLBACK_068_scope_registration_and_abstract_permissions.sql`). Then commit and deploy the conference-admin split and the earlier `can_edit_conference` unlock. Resend the two activation links from production Admin → Users. Ask Renata for the organizing-committee email before creating that account: `conference_admin` on IST 2027 with `can_manage_abstracts` only.
+Do not run `supabase db push`. Do not weaken RLS 067. Do not give platform super-admin access to the agency or the committee.
+
+Earlier snapshot below (2026-11-07 / 2026-11-19). Where it disagrees with the paragraph above or with `docs/pilot/TEST_KONFERENCIJA.md`, those win.
 
 Earlier snapshot below (2026-11-07 / 2026-11-19). Where it disagrees with the paragraph above or with `docs/pilot/TEST_KONFERENCIJA.md`, those win.
 

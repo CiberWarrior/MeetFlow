@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import type { UpdateConferenceInput } from '@/types/conference'
-import { requireCanEditConference, requireConferencePermission } from '@/lib/api-auth'
+import { requireActiveAuth, requireConferencePermission, requireSuperAdmin } from '@/lib/api-auth'
+import { conferenceUpdateAllowed, conferenceVisibleToAdmin } from '@/lib/conference-settings-scope'
 import { handleApiError, ApiError } from '@/lib/api-error'
 import { log } from '@/lib/logger'
 import { invalidateConferenceCache } from '@/lib/cache'
@@ -18,7 +19,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { supabase } = await requireConferencePermission(params.id)
+    const { user, profile, supabase } = await requireConferencePermission(params.id)
 
     const { data: conference, error } = await supabase
       .from('conferences')
@@ -30,9 +31,25 @@ export async function GET(
       throw ApiError.notFound('Conference')
     }
 
+    let visibleConference = conference
+    if (profile.role !== 'super_admin') {
+      const { data: permission } = await supabase
+        .from('conference_permissions')
+        .select('can_edit_conference, can_manage_abstracts')
+        .eq('user_id', user.id)
+        .eq('conference_id', params.id)
+        .maybeSingle()
+
+      visibleConference = conferenceVisibleToAdmin(conference, {
+        isSuperAdmin: false,
+        can_edit_conference: permission?.can_edit_conference === true,
+        can_manage_abstracts: permission?.can_manage_abstracts === true,
+      })
+    }
+
     // Return with no-cache headers to prevent caching issues
     return NextResponse.json(
-      { conference },
+      { conference: visibleConference },
       {
         headers: {
           'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
@@ -58,15 +75,55 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    // ✅ Use centralized auth helper (checks can_edit_conference permission)
-    const { user, profile } = await requireCanEditConference(params.id)
+    const auth = await requireActiveAuth()
+    const rawBody = await request.json()
+    const isSuperAdmin = auth.profile.role === 'super_admin'
+    let canEditConference = false
+    let canManageAbstracts = false
+
+    if (!isSuperAdmin) {
+      const { data: permission, error: permissionError } = await auth.supabase
+        .from('conference_permissions')
+        .select('can_edit_conference, can_manage_abstracts')
+        .eq('user_id', auth.user.id)
+        .eq('conference_id', params.id)
+        .maybeSingle()
+
+      if (permissionError || !permission) {
+        throw ApiError.forbidden('You do not have access to this conference')
+      }
+      canEditConference = permission.can_edit_conference === true
+      canManageAbstracts = permission.can_manage_abstracts === true
+    }
+
+    const decision = conferenceUpdateAllowed(rawBody, {
+      isSuperAdmin,
+      can_edit_conference: canEditConference,
+      can_manage_abstracts: canManageAbstracts,
+    })
+    if (!decision.ok) {
+      throw decision.reason === 'empty'
+        ? ApiError.validationError('No conference changes were provided')
+        : ApiError.forbidden('You do not have permission to edit this part of the conference')
+    }
+
+    const allowedSettings = {
+      ...(decision.conferenceBody.settings && typeof decision.conferenceBody.settings === 'object'
+        ? decision.conferenceBody.settings
+        : {}),
+      ...decision.abstractSettings,
+    }
+    const body: Partial<UpdateConferenceInput> = {
+      ...decision.conferenceBody,
+    }
+    if (Object.keys(allowedSettings).length > 0) {
+      body.settings = allowedSettings as UpdateConferenceInput['settings']
+    }
+
+    const { user, profile } = auth
 
     // Now safe to use admin client to bypass RLS policies for updates
     const supabase = createAdminClient()
-    const body: Partial<UpdateConferenceInput> = await request.json()
-
-    // Remove id from body if present (we use params.id)
-    delete body.id
 
     log.info('Updating conference', {
       conferenceId: params.id,
@@ -218,6 +275,9 @@ export async function PATCH(
       }
     )
   } catch (error) {
+    if (error instanceof ApiError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode })
+    }
     log.error('Conference update error', error, {
       conferenceId: params.id,
       action: 'update',
@@ -240,8 +300,8 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    // ✅ Use centralized auth helper (only super admins can delete)
-    const { user, supabase } = await requireCanEditConference(params.id)
+    // Conference deletion cascades registrations and abstracts. Super admin only.
+    const { user, supabase } = await requireSuperAdmin()
 
     // Check if conference exists
     const { data: conference, error: fetchError } = await supabase

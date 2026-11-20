@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { useConference } from '@/contexts/ConferenceContext'
 import { useAuth } from '@/contexts/AuthContext'
+import { supabase } from '@/lib/supabase'
 import { ArrowLeft, Save, Plus, X, GripVertical, Ticket, ChevronDown, ChevronRight, Trash2, Eye, EyeOff, Globe, Upload } from 'lucide-react'
 import type {
   HotelOption,
@@ -51,8 +52,10 @@ export default function ConferenceSettingsPage() {
   const router = useRouter()
   const params = useParams()
   const { refreshConferences } = useConference()
-  const { isSuperAdmin, profile } = useAuth()
+  const { isSuperAdmin, isImpersonating, profile } = useAuth()
   const conferenceId = params.id as string
+  const fullConferenceAccess = isSuperAdmin && !isImpersonating
+  const [adminScope, setAdminScope] = useState<{ edit: boolean; abstracts: boolean } | null>(null)
 
   const [conference, setConference] = useState<Conference | null>(null)
   const [loading, setLoading] = useState(true)
@@ -209,6 +212,36 @@ export default function ConferenceSettingsPage() {
       setCreatingTicketForHotel(null)
     }
   }
+
+  const canEditConference = fullConferenceAccess || adminScope?.edit === true
+  const canManageAbstracts = fullConferenceAccess || adminScope?.abstracts === true
+
+  useEffect(() => {
+    if (fullConferenceAccess) {
+      setAdminScope({ edit: true, abstracts: true })
+      return
+    }
+    if (!profile?.id || !conferenceId) return
+
+    let cancelled = false
+    supabase
+      .from('conference_permissions')
+      .select('can_edit_conference, can_manage_abstracts')
+      .eq('user_id', profile.id)
+      .eq('conference_id', conferenceId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled) return
+        setAdminScope({
+          edit: !error && data?.can_edit_conference === true,
+          abstracts: !error && data?.can_manage_abstracts === true,
+        })
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [fullConferenceAccess, profile?.id, conferenceId])
 
   const loadConference = async () => {
     try {
@@ -641,10 +674,11 @@ Important: Authors who submit abstracts for presentation are not automatically r
   const saveConference = async () => {
     setSaving(true)
     try {
-      const response = await fetch(`/api/admin/conferences/${conferenceId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const settings: Record<string, unknown> = {}
+      const payload: Record<string, unknown> = {}
+
+      if (canEditConference) {
+        Object.assign(payload, {
           name: formData.name,
           description: formData.description,
           start_date: formData.start_date || undefined,
@@ -661,31 +695,6 @@ Important: Authors who submit abstracts for presentation are not automatically r
                 ? parseFloat(formData.vat_percentage.toString())
                 : null,
             prices_include_vat: formData.prices_include_vat,
-            // Tier-based pricing removed; fees are in custom_registration_fees table
-          },
-          settings: {
-            registration_enabled: formData.registration_enabled,
-            abstract_submission_enabled: formData.abstract_submission_enabled,
-            abstract_submission_deadline: formData.abstract_submission_deadline || undefined,
-            abstract_submission_method: formData.abstract_submission_method,
-            payment_required: formData.payment_required,
-            max_registrations: formData.max_registrations ? parseInt(formData.max_registrations) : null,
-            timezone: formData.timezone,
-            // Always send arrays, even if empty - this ensures they're properly saved
-            custom_registration_fields: formData.custom_registration_fields,
-            custom_abstract_fields: formData.custom_abstract_fields,
-            participant_settings: participantSettings,
-            payment_settings: {
-              ...paymentSettings,
-              allow_card: false,
-              allow_bank_transfer: true,
-              default_preference: 'pay_now_bank',
-            },
-            registration_info_text: registrationInfoText || undefined,
-            abstract_info_text: abstractInfoText || undefined,
-            hotel_options: hotelOptions.length > 0 ? hotelOptions : undefined,
-            registration_addons:
-              registrationAddons.length > 0 ? registrationAddons : undefined,
           },
           email_settings: {
             from_email: formData.from_email || undefined,
@@ -694,7 +703,43 @@ Important: Authors who submit abstracts for presentation are not automatically r
           },
           published: formData.published,
           active: formData.active,
-        }),
+        })
+        Object.assign(settings, {
+          registration_enabled: formData.registration_enabled,
+          payment_required: formData.payment_required,
+          max_registrations: formData.max_registrations ? parseInt(formData.max_registrations) : null,
+          timezone: formData.timezone,
+          custom_registration_fields: formData.custom_registration_fields,
+          participant_settings: participantSettings,
+          payment_settings: {
+            ...paymentSettings,
+            allow_card: false,
+            allow_bank_transfer: true,
+            default_preference: 'pay_now_bank',
+          },
+          registration_info_text: registrationInfoText || undefined,
+          hotel_options: hotelOptions.length > 0 ? hotelOptions : undefined,
+          registration_addons:
+            registrationAddons.length > 0 ? registrationAddons : undefined,
+        })
+      }
+
+      if (canManageAbstracts) {
+        Object.assign(settings, {
+          abstract_submission_enabled: formData.abstract_submission_enabled,
+          abstract_submission_deadline: formData.abstract_submission_deadline || undefined,
+          abstract_submission_method: formData.abstract_submission_method,
+          custom_abstract_fields: formData.custom_abstract_fields,
+          abstract_info_text: abstractInfoText || undefined,
+        })
+      }
+
+      if (Object.keys(settings).length > 0) payload.settings = settings
+
+      const response = await fetch(`/api/admin/conferences/${conferenceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       })
 
       const data = await response.json()
@@ -751,7 +796,7 @@ Important: Authors who submit abstracts for presentation are not automatically r
     }
   }
 
-  if (loading) {
+  if (loading || !adminScope) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -806,12 +851,14 @@ Important: Authors who submit abstracts for presentation are not automatically r
           </div>
           <div className="flex items-center gap-3">
             {/* Custom Pages (Phase 1) */}
+            {canEditConference && (
             <Link
               href={`/admin/conferences/${conferenceId}/pages`}
               className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-all"
             >
               {t('pages')}
             </Link>
+            )}
             {/* Preview Button */}
             {conference.slug && (
               <Link
@@ -824,6 +871,7 @@ Important: Authors who submit abstracts for presentation are not automatically r
               </Link>
             )}
             {/* Publish Toggle */}
+            {canEditConference && (
             <button
               onClick={() => setFormData(prev => ({ ...prev, published: !prev.published }))}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all ${
@@ -844,11 +892,14 @@ Important: Authors who submit abstracts for presentation are not automatically r
                 </>
               )}
             </button>
+            )}
           </div>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {canEditConference && (
+        <>
         {/* Basic Information - Refactored component */}
         <BasicInfoSection formData={formData} onChange={handleFormDataChange} />
 
@@ -872,7 +923,7 @@ Important: Authors who submit abstracts for presentation are not automatically r
         />
 
         {/* Conference Settings - Refactored component */}
-        <GeneralSettingsSection formData={formData} onChange={handleFormDataChange} />
+        <GeneralSettingsSection section="registration" formData={formData} onChange={handleFormDataChange} />
 
         {/* Payment Options */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -1663,6 +1714,12 @@ Important: Authors who submit abstracts for presentation are not automatically r
             </div>
           )}
         </div>
+        </>
+        )}
+
+        {canManageAbstracts && (
+        <>
+        <GeneralSettingsSection section="abstracts" formData={formData} onChange={handleFormDataChange} />
 
         {/* Abstract Information Text - Refactored component */}
         <InfoTextSection
@@ -1888,7 +1945,11 @@ Important: Authors who submit abstracts for presentation are not automatically r
             </div>
           )}
         </div>
+        </>
+        )}
 
+        {canEditConference && (
+        <>
         {/* Tickets for this conference – e.g. when hotel rooms are full */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4">{t('ticketsForConference')}</h2>
@@ -1948,6 +2009,8 @@ Important: Authors who submit abstracts for presentation are not automatically r
           formData={formData}
           onChange={handleFormDataChange}
         />
+        </>
+        )}
 
         {/* Actions */}
         <div className="flex items-center justify-between gap-4 pt-6 border-t border-gray-200">

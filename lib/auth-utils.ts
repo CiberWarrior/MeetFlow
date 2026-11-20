@@ -314,9 +314,10 @@ export async function logAdminAction(
 }
 
 /**
- * Check specific permission for conference
- * SIMPLIFIED: If user has access to conference, they have all permissions for it
- * Granular permissions are kept in DB for future flexibility but not enforced
+ * Check a conference permission for the current user.
+ * Super admins pass. Delete stays super-admin-only.
+ * Edit requires can_edit_conference on that conference.
+ * Other operational flags pass when the user is assigned to the conference.
  */
 export async function checkPermission(
   conferenceId: string,
@@ -341,13 +342,18 @@ export async function checkPermission(
       return true
     }
 
-    // Simplified: If user has conference access, they have all permissions
-    // Only Super Admin can edit conference and delete data
-    if (permission === 'can_edit_conference' || permission === 'can_delete_data') {
-      return await isSuperAdmin()
+    // Deleting participant data stays super-admin-only.
+    if (permission === 'can_delete_data') {
+      return false
     }
 
-    // For all other permissions, just check if user has access to conference
+    // Editing follows the permission row on the assigned conference.
+    if (permission === 'can_edit_conference') {
+      const row = await getUserConferencePermissions(conferenceId)
+      return row?.can_edit_conference === true
+    }
+
+    // For operational permissions, conference access is enough.
     return await hasConferencePermission(conferenceId)
   } catch (error) {
     log.error('Error checking permission', error, {
