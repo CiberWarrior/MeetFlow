@@ -77,7 +77,7 @@ export default function NewConferencePage() {
   // Redirect if not Super Admin
   useEffect(() => {
     if (!authLoading && !isSuperAdmin) {
-      router.push('/admin/conferences')
+      router.push('/admin')
     }
   }, [isSuperAdmin, authLoading, router])
 

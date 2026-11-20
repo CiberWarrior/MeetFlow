@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { requireAuth, requireSuperAdmin } from '@/lib/api-auth'
+import { requireSuperAdmin } from '@/lib/api-auth'
 import { handleApiError } from '@/lib/api-error'
 import { log } from '@/lib/logger'
 
@@ -8,16 +8,13 @@ export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/admin/subscription-plans
- * Get subscription plans. By default only active plans; super admins can
- * request all plans (including inactive) with ?all=true.
+ * Super Admin only. Use ?all=true to include inactive plans.
  */
 export async function GET(request: NextRequest) {
   try {
-    const { user, profile, supabase } = await requireAuth()
+    const { user, supabase } = await requireSuperAdmin()
 
-    const includeAll =
-      request.nextUrl.searchParams.get('all') === 'true' &&
-      profile.role === 'super_admin'
+    const includeAll = request.nextUrl.searchParams.get('all') === 'true'
 
     let query = supabase
       .from('subscription_plans')

@@ -47,29 +47,31 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // RLS policies will automatically filter conferences based on:
-    // - Super admins see all conferences
-    // - Conference admins see only their assigned conferences
-    // When impersonating, we need to manually filter for the impersonated user
-    let conferencesQuery = supabase
-      .from('conferences')
-      .select('*')
+    // Super admins see all (unless impersonating a conference admin).
+    // Conference admins and impersonation: filter by conference_permissions.
+    // App-layer filter is required even with RLS — published-conference SELECT
+    // policies must not leak other events into the admin list.
+    const mustScopeToAssignments =
+      isImpersonating || profile.role !== 'super_admin'
 
-    if (isImpersonating) {
-      // When impersonating, only show conferences assigned to the impersonated user
+    let conferenceIds: string[] | null = null
+
+    if (mustScopeToAssignments) {
       const { data: permissions } = await supabase
         .from('conference_permissions')
         .select('conference_id')
         .eq('user_id', targetUserId)
 
-      const conferenceIds = permissions?.map(p => p.conference_id) || []
-      
-      if (conferenceIds.length > 0) {
-        conferencesQuery = conferencesQuery.in('id', conferenceIds)
-      } else {
-        // No conferences assigned, return empty array
+      conferenceIds = permissions?.map(p => p.conference_id) || []
+
+      if (conferenceIds.length === 0) {
         return NextResponse.json({ conferences: [] })
       }
+    }
+
+    let conferencesQuery = supabase.from('conferences').select('*')
+    if (conferenceIds) {
+      conferencesQuery = conferencesQuery.in('id', conferenceIds)
     }
 
     const { data: conferences, error } = await conferencesQuery

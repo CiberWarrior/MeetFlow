@@ -55,7 +55,7 @@ export default function PlansPage() {
 
   useEffect(() => {
     if (!authLoading && !isSuperAdmin) {
-      router.push('/admin/dashboard')
+      router.push('/admin')
     } else if (isSuperAdmin) {
       loadPlans()
     }

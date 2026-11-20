@@ -81,7 +81,7 @@ Workspace: `/Users/renchi/Documents/Cursor/MeetFlow`. Produkcija: https://meetfl
 | ID | `8c0a5da3-0420-4286-8b76-6aad5be18724` |
 | Slug | `ist-2027` |
 | `conference_code` | `IST2027` (nove prijave: `IST2027-001`, …) |
-| Stanje | **nacrt** (`published=false`) dok ne krene klijentski prolaz |
+| Stanje | **objavljeno** (`published=true`) — spremno za klijentski prolaz |
 | Kotizacije | 6 (rane 500/400/300 do 31. 3. 2027.; kasne 600/500/400 od 1. 4. 2027.) |
 | Polja | title, first_name, last_name, email, country, institution, symposium_dinner, friday_excursion, dietary_notes |
 | Info tekst | što kotizacija uključuje |
@@ -89,22 +89,22 @@ Workspace: `/Users/renchi/Documents/Cursor/MeetFlow`. Produkcija: https://meetfl
 | Primatelj | e-Tours d.o.o., IBAN `HR6524840081100145534`, Raiffeisenbank Austria d.d., Ulica grada Vukovara 5/1, Zagreb |
 | Virman na PDF-u | Model HR00 · poziv sa znamenkama i crticama (npr. `2027-001`) · oznaka prijave u opisu |
 
-Interni `@example.com` testni zapisi i lokalni sample PDF uklonjeni / za brisanje prije klijentskog prolaza. Ne držati stari `REG-001-…` predračun kao referencu za klijenta.
+Sintetičke `@example.com` prijave obrisane (20. 11. 2026.). Ostala je stvarna prijava `IST2027-001`. Testni conference_admin računi obrisani; ostao super admin.
 
 ### E-mail
 
-Blokirano dok Renata ne dobije Resend MFA / `RESEND_API_KEY` u Supabase Edge Function Secrets (`send-confirmation-email`). Pošiljatelj u funkciji: `MeetFlow <noreply@renatahorvat.com>`. Za klijentski test treba stvarna adresa.
+`RESEND_API_KEY` upisan u Supabase Edge Function Secrets. Pošiljatelj: `MeetFlow <noreply@renatahorvat.com>` (domena verified). Prvu potvrdu na stvarni inbox još treba ručno potvrditi nakon prijave.
 
 ### Otvoreno prije / tijekom klijentskog testa
 
-1. Resend ključ → potvrda e-mailom.
-2. Privremeno objaviti IST 2027, jedna prava prijava, predračun, pa po dogovoru vratiti u nacrt ili ostaviti objavljeno.
+1. Pokrenuti migraciju `067` (scoped admin RLS) u SQL Editoru, pa commit/push scoped-admin koda.
+2. Jedna klijentska prijava na stvarnu adresu → inbox + predračun.
 3. SWIFT (opcionalno); PDV % od agencije.
-4. Obrisati preostale sintetičke prijave u adminu (Registrations → odaberi → Delete), ako još postoje.
+4. Po dogovoru: ostaviti IST objavljen ili vratiti u nacrt.
 
 ### Preporučeni idući korak
 
-Očistiti stare prijave u adminu (ako još postoje), zatim klijentski prolaz (uz Resend kad bude spreman).
+1) SQL `067` → 2) commit/push scoped admin → 3) klijentski prolaz na https://meetflow-conference.vercel.app/conferences/ist-2027/register
 
 ## Kasnije, po konferenciji
 

@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useTranslations } from 'next-intl'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
 import Link from 'next/link'
 import { showSuccess, showError } from '@/utils/toast'
 import {
@@ -71,6 +73,8 @@ interface InquiryStats {
 
 export default function InquiriesPage() {
   const t = useTranslations('admin.inquiries')
+  const router = useRouter()
+  const { isSuperAdmin, loading: authLoading } = useAuth()
   const [inquiries, setInquiries] = useState<ContactInquiry[]>([])
   const [stats, setStats] = useState<InquiryStats | null>(null)
   const [loading, setLoading] = useState(true)
@@ -102,11 +106,17 @@ export default function InquiriesPage() {
   const [stripeConfigured, setStripeConfigured] = useState<boolean | null>(null)
 
   useEffect(() => {
-    loadInquiries()
-    loadStats()
-    loadSubscriptionPlans()
-    checkStripeConfiguration()
-  }, [])
+    if (!authLoading && !isSuperAdmin) {
+      router.push('/admin')
+      return
+    }
+    if (!authLoading && isSuperAdmin) {
+      loadInquiries()
+      loadStats()
+      loadSubscriptionPlans()
+      checkStripeConfiguration()
+    }
+  }, [authLoading, isSuperAdmin, router])
 
   const checkStripeConfiguration = async () => {
     // Probe subscription plans — do not call payment-offers with a fake inquiry id

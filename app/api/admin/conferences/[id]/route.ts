@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase-admin'
 import type { UpdateConferenceInput } from '@/types/conference'
-import { requireAuth, requireCanEditConference } from '@/lib/api-auth'
+import { requireCanEditConference, requireConferencePermission } from '@/lib/api-auth'
 import { handleApiError, ApiError } from '@/lib/api-error'
 import { log } from '@/lib/logger'
 import { invalidateConferenceCache } from '@/lib/cache'
@@ -10,20 +10,16 @@ export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/admin/conferences/[id]
- * Get a single conference by ID
- * Requires authentication - RLS policies will filter based on user permissions
+ * Get a single conference by ID.
+ * Super admins: any conference. Conference admins: only assigned conferences.
  */
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    // ✅ Use centralized auth helper
-    const { supabase } = await requireAuth()
+    const { supabase } = await requireConferencePermission(params.id)
 
-    // RLS policies will automatically filter based on user permissions
-    // Super admins see all conferences
-    // Conference admins see only their assigned conferences
     const { data: conference, error } = await supabase
       .from('conferences')
       .select('*')

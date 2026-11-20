@@ -3,12 +3,14 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useTranslations } from 'next-intl'
 import { useAuth } from '@/hooks/useAuth'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import LoadingSpinner from '@/components/LoadingSpinner'
 
 export default function AdminParticipantsPage() {
   const t = useTranslations('admin.participants')
-  const { user, profile, loading: authLoading } = useAuth()
+  const router = useRouter()
+  const { user, profile, loading: authLoading, isSuperAdmin } = useAuth()
   const [loading, setLoading] = useState(true)
   const [participants, setParticipants] = useState<any[]>([])
   const [pagination, setPagination] = useState({
@@ -50,10 +52,14 @@ export default function AdminParticipantsPage() {
   }, [pagination.page, pagination.limit, filters.search, filters.hasAccount, filters.loyaltyTier])
 
   useEffect(() => {
-    if (!authLoading && user) {
+    if (!authLoading && !isSuperAdmin) {
+      router.push('/admin')
+      return
+    }
+    if (!authLoading && user && isSuperAdmin) {
       fetchParticipants()
     }
-  }, [authLoading, user, fetchParticipants])
+  }, [authLoading, user, isSuperAdmin, router, fetchParticipants])
 
   const getLoyaltyColor = (tier: string) => {
     switch (tier) {
