@@ -5,48 +5,65 @@ import {
 } from '@/lib/payment-reference'
 
 describe('buildBankTransferReference', () => {
-  it('extracts a numeric poziv and keeps REG-… as the payment description', () => {
-    // b8cc hex → 47308 decimal, appended so REG-001-* variants stay unique
-    expect(buildBankTransferReference('REG-001-b8cc')).toEqual({
+  it('prefixes the sequence with conference code digits (2027-001)', () => {
+    expect(
+      buildBankTransferReference('IST2027-001', { conferenceCode: 'IST2027' })
+    ).toEqual({
       model: PAYMENT_REFERENCE_MODEL,
-      reference: '00147308',
+      reference: '2027-001',
+      description: 'IST2027-001',
+    })
+  })
+
+  it('keeps uniqueness when the registration mark has a hex suffix', () => {
+    // b8cc hex → 47308 decimal; still digits + at most two hyphens
+    expect(
+      buildBankTransferReference('REG-001-b8cc', { conferenceCode: 'IST2027' })
+    ).toEqual({
+      model: PAYMENT_REFERENCE_MODEL,
+      reference: '2027-001-47308',
       description: 'REG-001-b8cc',
     })
   })
 
-  it('supports a clean sequence without a random suffix', () => {
-    expect(buildBankTransferReference('IST2027-042')).toEqual({
+  it('falls back to an explicit conference year when the code has no digits', () => {
+    expect(
+      buildBankTransferReference('REG-042', {
+        conferenceCode: 'SUMMER',
+        conferenceYear: 2027,
+      })
+    ).toEqual({
       model: PAYMENT_REFERENCE_MODEL,
-      reference: '042',
-      description: 'IST2027-042',
+      reference: '2027-042',
+      description: 'REG-042',
     })
   })
 })
 
 describe('resolveBankTransferReference', () => {
-  it('uses a stored numeric payment_reference as the poziv', () => {
+  it('uses a stored poziv that already has digits and hyphens', () => {
     expect(
       resolveBankTransferReference({
-        paymentReference: '001',
-        registrationNumber: 'REG-001-b8cc',
+        paymentReference: '2027-001',
+        registrationNumber: 'IST2027-001',
       })
     ).toEqual({
       model: PAYMENT_REFERENCE_MODEL,
-      reference: '001',
-      description: 'REG-001-b8cc',
+      reference: '2027-001',
+      description: 'IST2027-001',
     })
   })
 
-  it('derives digits when an older alphanumeric payment_reference was stored', () => {
-    // 5fdd hex → 24541 decimal
+  it('derives a scoped poziv when an older alphanumeric payment_reference was stored', () => {
     expect(
       resolveBankTransferReference({
         paymentReference: 'REG-001-5fdd',
         registrationNumber: 'REG-001-5fdd',
+        conferenceCode: 'IST2027',
       })
     ).toEqual({
       model: PAYMENT_REFERENCE_MODEL,
-      reference: '00124541',
+      reference: '2027-001-24541',
       description: 'REG-001-5fdd',
     })
   })

@@ -27,7 +27,7 @@ export async function GET(
     // Load by conference_id (same as /api/register) so settings match the registration path.
     const { data: conference } = await supabase
       .from('conferences')
-      .select('id, name, slug, settings, pricing, owner_id')
+      .select('id, name, slug, settings, pricing, owner_id, conference_code, start_date')
       .eq('id', row.registration.conference_id)
       .single()
 

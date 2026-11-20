@@ -22,8 +22,8 @@ describe('generateProformaInvoicePdf', () => {
       swiftBic: 'ZABAHR2X',
       currency: 'EUR',
       paymentModel: 'HR00',
-      paymentReference: '001',
-      paymentDescription: 'REG-001-test',
+      paymentReference: '2027-001',
+      paymentDescription: 'IST2027-001',
       lineItems: [{ description: 'Sudionik (do 31. 3. 2027.)', amount: 500 }],
     })
 

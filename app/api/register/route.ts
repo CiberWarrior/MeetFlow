@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
     // Verify conference exists and is active
       const { data: conference, error: confError } = await supabase
         .from('conferences')
-      .select('id, name, slug, settings, email_settings, pricing, start_date, owner_id')
+      .select('id, name, slug, settings, email_settings, pricing, start_date, owner_id, conference_code')
       .eq('id', validatedData.conference_id)
         .eq('published', true)
         .eq('active', true)
@@ -466,10 +466,16 @@ export async function POST(request: NextRequest) {
     let registrationManageToken: string | null = null
 
     if (paymentMethod === 'bank_transfer' && chargeable > 0) {
-      // Registration number (e.g. REG-001) stays the visible mark; poziv na broj
-      // is digits-only under model HR00 (see lib/payment-reference.ts).
+      // Registration number stays the visible mark; poziv na broj is scoped
+      // digits/hyphens under model HR00 (e.g. 2027-001; see lib/payment-reference.ts).
       const { buildBankTransferReference } = await import('@/lib/payment-reference')
-      const transferRef = buildBankTransferReference(registration.registration_number)
+      const conferenceYear = conference.start_date
+        ? new Date(conference.start_date).getFullYear()
+        : null
+      const transferRef = buildBankTransferReference(registration.registration_number, {
+        conferenceCode: conference.conference_code,
+        conferenceYear,
+      })
       const paymentReference = transferRef.reference
 
       const { error: refUpdateError } = await supabase

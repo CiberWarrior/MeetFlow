@@ -93,9 +93,14 @@ export async function buildProformaPdfForRegistration(
 
   const registrationMark =
     registration.registration_number || registration.id.slice(0, 8).toUpperCase()
+  const conferenceYear = conference.start_date
+    ? new Date(conference.start_date).getFullYear()
+    : null
   const transferRef = resolveBankTransferReference({
     paymentReference: registration.payment_reference,
     registrationNumber: registrationMark,
+    conferenceCode: conference.conference_code,
+    conferenceYear,
   })
 
   const input: ProformaInvoiceInput = {

@@ -51,7 +51,7 @@ export interface Registration extends RegistrationData {
   selectedAddons?: Array<{ id: string; quantity?: number }>
   // Multi-currency & bank transfer support
   payment_method?: 'card' | 'bank_transfer' | 'cash' | 'other' // Method of payment
-  payment_reference?: string | null // Numeric poziv na broj (model HR00); registration mark stays in registration_number
+  payment_reference?: string | null // Poziv na broj (HR00): digits + ≤2 hyphens, e.g. 2027-001; mark stays in registration_number
   payment_currency?: string // Currency used for this payment (e.g., 'EUR', 'USD')
   payment_amount?: number // Amount paid in selected currency
   bank_transfer_proof_url?: string | null // URL to uploaded proof of bank transfer

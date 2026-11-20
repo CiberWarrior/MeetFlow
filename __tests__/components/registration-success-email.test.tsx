@@ -23,7 +23,7 @@ const bankInstructions = {
   amount: 0,
   currency: 'EUR',
   model: 'HR00',
-  reference: '006',
+  reference: '2027-006',
   description: 'ICD11-006',
 }
 

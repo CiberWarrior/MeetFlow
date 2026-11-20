@@ -66,7 +66,7 @@ Virman, šest kotizacija u dva datuma, engleski, vlastita polja, opis onoga što
 
 Upisani iznos na obrascu kotizacije je bruto. Uz primjer stope 25% sudionik i dalje vidi i plaća 500, 400 i 300 eura, na formi, na predračunu i u potvrdi. Kartica ostaje isključena. Za IST 2027 IBAN i naziv banke su upisani (e-Tours, Raiffeisenbank Austria d.d.); SWIFT još fali. Predračun nije porezni račun. QR se ne uključuje. Politika privatnosti e-Toursa može stajati kao poveznica; automatsko brisanje nakon dvije godine nije u aplikaciji. Večera u srijedu i izlet u petak ulaze u kotizaciju.
 
-Virman na predračunu: model **HR00**, poziv na broj samo znamenke, oznaka prijave u opisu plaćanja.
+Virman na predračunu: model **HR00**, poziv na broj sa znamenkama i crticama (npr. `2027-001`), oznaka prijave u opisu plaćanja.
 
 Dio detalja ne treba zaključati sada. Renata je 19. 11. 2026. rekla da će se s agencijom dogovoriti kasnije, jer ovisi od konferencije do konferencije. To su cijene doplata, hoteli, postotak PDV-a, pravila otkazivanja, način prijenosa dokumentacije te SWIFT. Sposobnost aplikacije za virman, kotizacije, polja, sažetak i admine time se ne mijenja.
 
@@ -87,7 +87,7 @@ Workspace: `/Users/renchi/Documents/Cursor/MeetFlow`. Produkcija: https://meetfl
 | Info tekst | što kotizacija uključuje |
 | `reply_to` | `mice@etours.hr` |
 | Primatelj | e-Tours d.o.o., IBAN `HR6524840081100145534`, Raiffeisenbank Austria d.d., Ulica grada Vukovara 5/1, Zagreb |
-| Virman na PDF-u | Model HR00 · brojčani poziv · oznaka prijave u opisu |
+| Virman na PDF-u | Model HR00 · poziv sa znamenkama i crticama (npr. `2027-001`) · oznaka prijave u opisu |
 
 Interni `@example.com` testni zapisi i lokalni sample PDF uklonjeni / za brisanje prije klijentskog prolaza. Ne držati stari `REG-001-…` predračun kao referencu za klijenta.
 
@@ -104,7 +104,7 @@ Blokirano dok Renata ne dobije Resend MFA / `RESEND_API_KEY` u Supabase Edge Fun
 
 ### Preporučeni idući korak
 
-Commit/push HR00 izmjene + redeploy, očistiti stare prijave u adminu, zatim klijentski prolaz (uz Resend kad bude spreman).
+Očistiti stare prijave u adminu (ako još postoje), zatim klijentski prolaz (uz Resend kad bude spreman).
 
 ## Kasnije, po konferenciji
 
