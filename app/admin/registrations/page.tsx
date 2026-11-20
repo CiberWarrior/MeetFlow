@@ -271,6 +271,7 @@ function RegistrationsPageContent() {
       t('exportPaymentMethod'),
       t('exportPayerType'),
       t('exportCompanyName'),
+      t('exportCompanyVat'),
       t('exportPaymentRequired'),
       t('exportPaymentByCard'),
       t('exportPaymentStatus'),
@@ -290,6 +291,11 @@ function RegistrationsPageContent() {
     
     const rows = filteredRegistrations.map((r) => {
       const acc = getAccommodationDisplay(r, hotelOptions)
+      const companyDetails = r.customFields?.company_details as {
+        company_name?: string
+        vat_number?: string | null
+        no_vat?: boolean
+      } | null
       const standardData = [
         currentConference?.name || 'N/A',
         r.firstName,
@@ -312,7 +318,8 @@ function RegistrationsPageContent() {
         r.registrationFeeType ?? '',
         r.paymentMethod === 'card' ? 'Card' : r.paymentMethod === 'bank_transfer' ? 'Bank transfer' : '',
         (r.customFields?.payer_type as string) || '',
-        (r.customFields?.company_details as { company_name?: string } | null)?.company_name ?? '',
+        companyDetails?.company_name ?? '',
+        companyDetails?.no_vat ? '' : companyDetails?.vat_number ?? '',
         r.paymentRequired ? 'Yes' : 'No',
         r.paymentByCard ? 'Yes' : 'No',
         r.paymentStatus,

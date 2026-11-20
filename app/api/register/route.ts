@@ -848,7 +848,7 @@ export async function POST(request: NextRequest) {
           summaryParts.push(
             '<p style="margin: 10px 0 4px 0;"><strong>Billing (company)</strong></p>',
             `<p style="margin: 0 0 4px 0; padding-left: 12px;">${escapeHtml(c.company_name)}</p>`,
-            c.vat_number ? `<p style="margin: 0 0 4px 0; padding-left: 12px;">VAT: ${escapeHtml(c.vat_number)}</p>` : '',
+            c.vat_number ? `<p style="margin: 0 0 4px 0; padding-left: 12px;">OIB / VAT: ${escapeHtml(c.vat_number)}</p>` : '',
             `<p style="margin: 0 0 4px 0; padding-left: 12px;">${escapeHtml([c.address, c.postal_code, c.city, c.country].filter(Boolean).join(', '))}</p>`
           )
         }
