@@ -70,23 +70,10 @@ export async function GET(
       row.registration.registration_number ||
       row.registration.id.substring(0, 8).toUpperCase()
 
-    const settingsObj =
-      conferenceForPdf.settings && typeof conferenceForPdf.settings === 'object'
-        ? (conferenceForPdf.settings as Record<string, any>)
-        : {}
-    const settingsIban = settingsObj.payment_settings?.bank_details?.iban
-    const fromSettings = typeof settingsIban === 'string' && !!settingsIban.trim()
-
     return new NextResponse(new Uint8Array(pdf), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="proforma-${ref}.pdf"`,
-        // Temporary pilot diagnostics (no full IBAN): confirm which bank source was used.
-        'X-Bank-Source': fromSettings ? 'conference' : 'profile',
-        'X-Bank-Iban-Last4': bank.iban.slice(-4),
-        'X-Settings-Type': typeof conferenceForPdf.settings,
-        'X-Has-Payment-Settings': settingsObj.payment_settings ? '1' : '0',
-        'X-Has-Bank-Details': settingsObj.payment_settings?.bank_details ? '1' : '0',
       },
     })
   } catch (error) {

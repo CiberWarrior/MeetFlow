@@ -85,8 +85,9 @@ Workspace: `/Users/renchi/Documents/Cursor/MeetFlow`. Produkcija: https://meetfl
 | `06307ee` | Predračun više ne selektira nepostojeće stupce `address`, `city`, `country` na `user_profiles` |
 | `8286bf8` | Ugrađen Noto Sans u predračun radi hrvatskih slova (č/ć/š/ž/đ) |
 | `d091d42` | Bankovni podaci po konferenciji (`payment_settings.bank_details`); popravak `inquiryId=test` |
+| `b8263d0` / `20fae19` | Predračun učitava konferenciju po `id` (kao register) i parsira string `settings`; PDF s e-Tours IBAN |
 
-Lokalno nakon `d091d42` (lažno okruženje): **169** testova, lint čist, build OK.
+Lokalno nakon bank/PDF fixa: bank-details + inclusive-catalog + proforma PDF testovi prošli.
 
 ### Testna konferencija u produkciji
 
@@ -103,7 +104,7 @@ Lokalno nakon `d091d42` (lažno okruženje): **169** testova, lint čist, build 
 2. `REG-001-5fdd` — Test Proforma, `ist-2027-proforma@example.com`, 500.00 EUR, virman. Predračun HTTP 200 nakon `06307ee`; iznos 500.00 EUR potvrđen na formi, potvrdi i u PDF-u.
 3. Dodatne sintetičke prijave 20. 11. 2026. radi provjere bankovnih podataka (`ist-2027-bankverify*@example.com`).
 
-Primatelj uplate za IST 2027: u `settings.payment_settings.bank_details` stoji **e-Tours d.o.o.**, IBAN `HR6524840081100145534`, banka Raiffeisenbank Austria d.d., adresa Ulica grada Vukovara 5/1, Zagreb. `/api/register` u `bank_instructions` već vraća e-Tours. Predračun PDF na produkciji je 20. 11. još pokazivao stari PMF/HR123… — dodatni fix parsira string `settings` i prosljeđuje već razriješene bankovne podatke u PDF builder.
+Primatelj uplate za IST 2027: u `settings.payment_settings.bank_details` stoji **e-Tours d.o.o.**, IBAN `HR6524840081100145534`, banka Raiffeisenbank Austria d.d., adresa Ulica grada Vukovara 5/1, Zagreb. Potvrđeno 20. 11. 2026. na produkciji: `bank_instructions` i predračun PDF (Recipient e-Tours, IBAN …5534, Raiffeisenbank).
 
 ### E-mail (blokirano — čeka Resend)
 
@@ -124,13 +125,12 @@ Nema `RESEND_API_KEY` / `EMAIL_FROM` na Vercelu (za potvrdu prijave ključ ide u
 ### Otvoreno (prioritet)
 
 1. Resend: API Key → Supabase Edge Functions → Secrets → `RESEND_API_KEY` (Renata čeka MFA odobrenje). Zatim testna prijava na stvarnu adresu.
-2. Nakon deploya bank/PDF fixa: vizualno potvrditi predračun (e-Tours + IBAN …5534); headeri `X-Bank-Source` / `X-Bank-Iban-Last4` pomažu dijagnostici.
-3. PDV % od agencije; SWIFT e-Toursa (opcionalno).
-4. Opcionalno: očistiti testne prijave (samo uz odobrenje).
+2. PDV % od agencije; SWIFT e-Toursa (opcionalno).
+3. Opcionalno: očistiti testne prijave (samo uz odobrenje).
 
 ### Preporučeni idući korak
 
-Potvrditi e-Tours na predračunu nakon deploya. Resend ostaje blokiran dok Renata ne dobije MFA.
+Kad Resend MFA prođe: upisati `RESEND_API_KEY` u Edge Function Secrets, privremeno objaviti IST 2027, jedna prijava na stvarnu adresu, pa vratiti u nacrt.
 
 ## Kasnije, po konferenciji
 
